@@ -13,7 +13,8 @@ use super::{packed::PackedStorage, ComponentStorage};
 pub struct ComponentTypeId {
     pub(crate) type_id: TypeId,
     #[cfg(debug_assertions)]
-    name: &'static str,
+    #[doc(hidden)]
+    pub name: &'static str,
 }
 
 impl ComponentTypeId {
