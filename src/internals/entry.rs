@@ -42,7 +42,8 @@ pub enum ComponentError {
 /// Provides safe read-only access to an entity's components.
 pub struct EntryRef<'a> {
     pub(crate) location: EntityLocation,
-    pub(crate) components: &'a Components,
+    #[doc(hidden)]
+    pub components: &'a Components,
     pub(crate) archetypes: &'a [Archetype],
     pub(crate) allowed_components: ComponentAccess<'a>,
 }
