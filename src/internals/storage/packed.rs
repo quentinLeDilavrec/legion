@@ -171,7 +171,7 @@ impl<T> ComponentVec<T> {
         };
 
         if cap - len < space {
-            self.grow(epoch, len + space);
+            self.grow(epoch, len * 2 + space);
         }
     }
 
