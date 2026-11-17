@@ -19,11 +19,27 @@ pub mod packed;
 pub mod slicevec;
 
 /// Contains information about the type of a component.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone)]
 pub struct ComponentMeta {
     size: usize,
     align: usize,
     drop_fn: Option<fn(*mut u8)>,
+}
+
+impl PartialEq for ComponentMeta {
+    fn eq(&self, other: &Self) -> bool {
+        self.size == other.size
+            && self.align == other.align
+            && if let Some(self_drop_fn) = self.drop_fn {
+                if let Some(other_drop_fn) = other.drop_fn {
+                    std::ptr::fn_addr_eq(self_drop_fn, other_drop_fn)
+                } else {
+                    false
+                }
+            } else {
+                other.drop_fn.is_none()
+            }
+    }
 }
 
 impl ComponentMeta {
@@ -331,7 +347,7 @@ impl Components {
     }
 
     /// Returns a writer for writing to multiple component storages.
-    pub fn get_multi_mut(&mut self) -> MultiMut {
+    pub fn get_multi_mut(&mut self) -> MultiMut<'_> {
         MultiMut::new(self)
     }
 

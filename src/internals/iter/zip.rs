@@ -94,7 +94,7 @@ macro_rules! impl_zip_iter {
             #[allow(clippy::let_and_return)]
             fn size_hint(&self) -> (usize, Option<usize>)
             {
-                let sh = (::std::usize::MAX, None);
+                let sh = (usize::MAX, None);
                 let ($(ref $B,)*) = self.t;
                 $(
                     let sh = min($B.size_hint(), sh);

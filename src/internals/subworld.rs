@@ -30,12 +30,10 @@ impl ArchetypeAccess {
     pub fn is_disjoint(&self, other: &ArchetypeAccess) -> bool {
         match self {
             Self::All => false,
-            Self::Some(mine) => {
-                match other {
-                    Self::All => false,
-                    Self::Some(theirs) => mine.is_disjoint(theirs),
-                }
-            }
+            Self::Some(mine) => match other {
+                Self::All => false,
+                Self::Some(theirs) => mine.is_disjoint(theirs),
+            },
         }
     }
 
@@ -232,7 +230,7 @@ impl<'a> SubWorld<'a> {
     pub fn split_for_query<'q, V: IntoView, F: EntityFilter>(
         &mut self,
         _: &'q Query<V, F>,
-    ) -> (SubWorld, SubWorld) {
+    ) -> (SubWorld<'_>, SubWorld<'_>) {
         self.split::<V>()
     }
 
@@ -248,7 +246,7 @@ impl<'a> SubWorld<'a> {
 impl<'a> EntityStore for SubWorld<'a> {
     fn get_component_storage<V: for<'b> View<'b>>(
         &self,
-    ) -> Result<StorageAccessor, EntityAccessError> {
+    ) -> Result<StorageAccessor<'_>, EntityAccessError> {
         if V::validate_access(&self.components) {
             Ok(self
                 .world
@@ -260,7 +258,7 @@ impl<'a> EntityStore for SubWorld<'a> {
         }
     }
 
-    fn entry_ref(&self, entity: Entity) -> Result<EntryRef, EntityAccessError> {
+    fn entry_ref(&self, entity: Entity) -> Result<EntryRef<'_>, EntityAccessError> {
         let entry = self.world.entry_ref(entity)?;
 
         if !self.validate_archetype_access(entry.location().archetype()) {
@@ -273,7 +271,7 @@ impl<'a> EntityStore for SubWorld<'a> {
         })
     }
 
-    fn entry_mut(&mut self, entity: Entity) -> Result<EntryMut, EntityAccessError> {
+    fn entry_mut(&mut self, entity: Entity) -> Result<EntryMut<'_>, EntityAccessError> {
         // safety: protected by &mut self and subworld access validation
         let entry = unsafe { self.world.entry_unchecked(entity)? };
 

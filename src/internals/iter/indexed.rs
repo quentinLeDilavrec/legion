@@ -197,7 +197,7 @@ macro_rules! impl_zip_slices {
 
                 #[inline]
                 fn len(&self) -> usize {
-                    let len = std::usize::MAX;
+                    let len = usize::MAX;
                     let ($(ref $ty,)*) = self;
                     $( let len = std::cmp::min(len, $ty.len()); )*
                     len

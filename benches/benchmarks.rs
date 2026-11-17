@@ -74,9 +74,9 @@ fn setup(n: usize) -> World {
 }
 
 fn bench_create_delete(c: &mut Criterion) {
-    c.bench_function_over_inputs(
-        "create-delete",
-        |b, count| {
+    let mut g = c.benchmark_group("create-delete");
+    for i in 0..10 {
+        g.bench_with_input("create-delete", &(i * 100), |b, count| {
             let mut world = setup(0);
             b.iter(|| {
                 let entities = world.extend((0..*count).map(|_| (Position(0.),))).to_vec();
@@ -85,9 +85,8 @@ fn bench_create_delete(c: &mut Criterion) {
                     world.remove(e);
                 }
             })
-        },
-        (0..10).map(|i| i * 100),
-    );
+        });
+    }
 }
 
 fn bench_iter_simple(c: &mut Criterion) {

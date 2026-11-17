@@ -38,21 +38,17 @@ fn bench_insert_unbatched(c: &mut Criterion) {
 }
 
 fn bench_insert_batched(c: &mut Criterion) {
-    c.bench(
-        "insert_batched",
-        ParameterizedBenchmark::new(
-            "counts",
-            |b, n| {
-                b.iter(|| {
-                    let mut world = World::default();
-                    let components: Vec<(isize,)> = (0..*n).map(|i| (i,)).collect();
+    let mut g = c.benchmark_group("insert_batched");
+    for i in 0..10 {
+        g.bench_with_input("counts", &(i * 1000), |b, n| {
+            b.iter(|| {
+                let mut world = World::default();
+                let components: Vec<(isize,)> = (0..*n).map(|i| (i,)).collect();
 
-                    world.extend(components);
-                });
-            },
-            (1..11).map(|i| i * 1000),
-        ),
-    );
+                world.extend(components);
+            });
+        });
+    }
 }
 
 criterion_group!(

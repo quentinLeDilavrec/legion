@@ -51,32 +51,28 @@ fn setup(data: &[Variants]) -> World {
 
     for (i, group) in &data.iter().group_by(|x| index(**x)) {
         match i {
-            0 => {
-                world.extend(
-                    group
-                        .map(|x| {
-                            if let Variants::Ab(a, b) = x {
-                                (*a, *b)
-                            } else {
-                                panic!();
-                            }
-                        })
-                        .collect::<Vec<_>>(),
-                )
-            }
-            _ => {
-                world.extend(
-                    group
-                        .map(|x| {
-                            if let Variants::Ac(a, c) = x {
-                                (*a, *c)
-                            } else {
-                                panic!();
-                            }
-                        })
-                        .collect::<Vec<_>>(),
-                )
-            }
+            0 => world.extend(
+                group
+                    .map(|x| {
+                        if let Variants::Ab(a, b) = x {
+                            (*a, *b)
+                        } else {
+                            panic!();
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            ),
+            _ => world.extend(
+                group
+                    .map(|x| {
+                        if let Variants::Ac(a, c) = x {
+                            (*a, *c)
+                        } else {
+                            panic!();
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            ),
         };
     }
 
@@ -165,33 +161,24 @@ fn par_for_each_mut(world: &mut World) {
 }
 
 fn bench_ordered(c: &mut Criterion) {
-    c.bench(
-        "concurrent queries",
-        ParameterizedBenchmark::new(
-            "sequential ideal",
-            |b, n| {
-                let data = data(*n);
-                let (mut ab, mut ac) = setup_ideal(&data);
-                b.iter(|| ideal(&mut ab, &mut ac));
-            },
-            (1..11).map(|i| i * 1000),
-        )
-        .with_function("sequential", |b, n| {
+    let mut g = c.benchmark_group("concurrent queries");
+    for i in 1..11 {
+        g.bench_with_input("sequential ideal", &(i * 1000), |b, n| {
             let data = data(*n);
             let mut world = setup(&data);
             b.iter(|| sequential(&mut world));
-        })
-        .with_function("parallel", |b, n| {
+        });
+        g.bench_with_input("parallel", &(i * 1000), |b, n| {
             let data = data(*n);
             let mut world = setup(&data);
             join(|| {}, || b.iter(|| parallel(&mut world)));
-        })
-        .with_function("par_for_each_mut", |b, n| {
+        });
+        g.bench_with_input("par_for_each_mut", &(i * 1000), |b, n| {
             let data = data(*n);
             let mut world = setup(&data);
             join(|| {}, || b.iter(|| par_for_each_mut(&mut world)));
-        }),
-    );
+        });
+    }
 }
 
 criterion_group!(iterate, bench_ordered);
