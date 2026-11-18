@@ -178,7 +178,7 @@
 //!
 //! # Feature Flags
 //!
-//! Legion provides a few feature flags:  
+//! Legion provides a few feature flags:
 //! * `parallel` - Enables parallel iterators and parallel schedule execution via the rayon library. Enabled by default.
 //! * `extended-tuple-impls` - Extends the maximum size of view and component tuples from 8 to 24, at the cost of increased compile times. Off by default.
 //! * `serialize` - Enables the serde serialization module and associated functionality. Enabled by default.
@@ -189,6 +189,7 @@
 mod internals;
 
 // public API organized into logical modules
+pub mod dyn_builder;
 pub mod query;
 pub mod storage;
 pub mod systems;
