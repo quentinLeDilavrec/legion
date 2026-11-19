@@ -3,8 +3,9 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
-    parse_macro_input, parse_quote, spanned::Spanned, Attribute, Expr, GenericArgument, Generics,
-    Ident, Index, ItemFn, Lit, Meta, PathArguments, Signature, Type, TypePath, Visibility,
+    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, Attribute, Expr,
+    ExprLit, GenericArgument, Generics, Ident, Index, ItemFn, Lit, Meta, PathArguments, Signature,
+    Token, Type, TypePath, Visibility,
 };
 
 /// Wraps a function in a system, and generates a new function which constructs that system.
@@ -268,14 +269,14 @@ impl SystemAttr {
             Meta::List(items) => {
                 let mut n = None;
                 let mut s = None;
-                for item in &items.nested {
+                let nested = items
+                    .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
+                    .map_err(|e| Error::Message(e.to_string()))?;
+                for item in &nested {
                     let Self {
                         constructor_name,
                         system_type,
-                    } = match item {
-                        syn::NestedMeta::Meta(meta) => Self::parse_meta(&meta)?,
-                        syn::NestedMeta::Lit(_) => panic!("unexpected literal"),
-                    };
+                    } = Self::parse_meta(item)?;
                     if let Some(constructor_name) = constructor_name {
                         if n.replace(constructor_name).is_some() {
                             return Err(Error::DuplicateConstructorName);
@@ -291,7 +292,16 @@ impl SystemAttr {
             }
             Meta::NameValue(name_value) => {
                 match name_value.path.get_ident() {
-                    Some(ident) if ident == "ctor" => Self::new(Some(name_value.lit.clone()), None),
+                    Some(ident) if ident == "ctor" => {
+                        match &name_value.value {
+                            Expr::Lit(ExprLit { lit, .. }) => Self::new(Some(lit.clone()), None),
+                            _ => {
+                                return Err(Error::Message(
+                                    "`ctor` must be a string literal".to_string(),
+                                ));
+                            }
+                        }
+                    }
                     Some(ident) => return Err(Error::InvalidKey(ident.span())),
                     _ => return Err(Error::InvalidKey(Span::call_site())),
                 }
@@ -466,7 +476,7 @@ impl Sig {
 
     fn find_remove_arg_attr(attributes: &mut Vec<Attribute>) -> Option<ArgAttr> {
         for i in (0..attributes.len()).rev() {
-            match attributes[i].path.get_ident() {
+            match attributes[i].path().get_ident() {
                 Some(ident) if ident == "resource" => {
                     attributes.remove(i);
                     return Some(ArgAttr::Resource);
@@ -555,7 +565,7 @@ impl Config {
         let mut write_components = Vec::new();
         let mut filters = Vec::new();
         for (i, attribute) in item.attrs.iter().enumerate() {
-            if let Some(ident) = attribute.path.get_ident() {
+            if let Some(ident) = attribute.path().get_ident() {
                 if ident == "read_component" {
                     let component = attribute
                         .parse_args()
