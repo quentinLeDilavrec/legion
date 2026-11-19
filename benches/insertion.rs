@@ -7,7 +7,7 @@ fn bench_insert_zero_baseline(c: &mut Criterion) {
             //let universe = Universe::new();
             //let mut world = universe.create_world();
             let components: Vec<isize> = (0..10000).collect();
-            criterion::black_box(components);
+            std::hint::black_box(components);
         });
     });
 }
@@ -17,7 +17,7 @@ fn bench_insert_one_baseline(c: &mut Criterion) {
         b.iter(|| {
             let mut world = World::default();
             let components: Vec<isize> = (0..10000).collect();
-            criterion::black_box(components);
+            std::hint::black_box(components);
 
             world.extend(vec![(1usize,)]);
         });
