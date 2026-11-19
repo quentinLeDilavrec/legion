@@ -454,7 +454,7 @@ impl<'a> MultiMut<'a> {
         self.components
             .storages
             .get_mut(&type_id)
-            .and_then(|cell| Self::extend_lifetime(cell).downcast_mut())
+            .and_then(|cell| unsafe { Self::extend_lifetime(cell) }.downcast_mut())
     }
 
     /// Claims exclusive access to a component storage.
@@ -479,10 +479,10 @@ impl<'a> MultiMut<'a> {
         self.components
             .storages
             .get_mut(&type_id)
-            .map(|cell| Self::extend_lifetime(cell).deref_mut())
+            .map(|cell| unsafe { Self::extend_lifetime(cell) }.deref_mut())
     }
 
     unsafe fn extend_lifetime<'b, T>(value: &'b mut T) -> &'a mut T {
-        std::mem::transmute::<&'b mut T, &'a mut T>(value)
+        unsafe { std::mem::transmute::<&'b mut T, &'a mut T>(value) }
     }
 }

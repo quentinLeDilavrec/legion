@@ -269,11 +269,12 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
 
         let arch_slice = [location.archetype()];
         let arch_slice_ref: &[ArchetypeIndex] = &arch_slice;
-        let arch_slice_ref = std::mem::transmute(arch_slice_ref);
+        let arch_slice_ref = unsafe { std::mem::transmute(arch_slice_ref) };
         let result = QueryResult::unordered(arch_slice_ref);
-        let mut fetch = if let Some(Some(fetch)) =
+        let mut fetch = if let Some(Some(fetch)) = unsafe {
             <V::View as View<'world>>::fetch(accessor.components(), accessor.archetypes(), result)
-                .next()
+        }
+        .next()
         {
             fetch
         } else {
@@ -295,7 +296,7 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         let view = ChunkView::new(&accessor.archetypes()[location.archetype()], fetch);
         let mut iter = view.into_iter();
         use crate::internals::iter::indexed::TrustedRandomAccess;
-        Ok(iter.get_unchecked(location.component().0))
+        Ok(unsafe { iter.get_unchecked(location.component().0) })
     }
 
     /// Returns the components for a single entity.
@@ -375,13 +376,16 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         // The ChunkIter only returns (unmolested) 'world references. Our virtual lifetime
         // cannot leak out of it. When the iterator is dropped, our virtual lifetime dies with it.
 
-        let result = std::mem::transmute::<QueryResult<'_>, QueryResult<'world>>(result);
-        let indices = std::mem::transmute::<Iter<'_, ArchetypeIndex>, Iter<'query, ArchetypeIndex>>(
-            result.index.iter(),
-        );
+        let result = unsafe { std::mem::transmute::<QueryResult<'_>, QueryResult<'world>>(result) };
+        let indices = unsafe {
+            std::mem::transmute::<Iter<'_, ArchetypeIndex>, Iter<'query, ArchetypeIndex>>(
+                result.index.iter(),
+            )
+        };
 
-        let fetch =
-            <V::View as View<'world>>::fetch(accessor.components(), accessor.archetypes(), result);
+        let fetch = unsafe {
+            <V::View as View<'world>>::fetch(accessor.components(), accessor.archetypes(), result)
+        };
         let filter = self.filter.get_mut();
         filter.prepare(world.id());
         ChunkIter {
@@ -484,7 +488,7 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         &'query mut self,
         world: &'world T,
     ) -> std::iter::Flatten<ChunkIter<'world, 'query, V::View, F>> {
-        self.iter_chunks_unchecked(world).flatten()
+        unsafe { self.iter_chunks_unchecked(world).flatten() }
     }
 
     /// Returns a parallel iterator which will yield all components which match the query.
@@ -499,7 +503,8 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         world: &'a T,
     ) -> rayon::iter::Flatten<par_iter::ParChunkIter<'a, V::View, F>> {
         use rayon::iter::ParallelIterator;
-        self.par_iter_chunks_unchecked(world).flatten()
+        // safety: the caller upholds the aliasing contract of this function
+        unsafe { self.par_iter_chunks_unchecked(world) }.flatten()
     }
 
     /// Returns an iterator which will yield all components which match the query.
@@ -576,7 +581,8 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     ) where
         Body: FnMut(ChunkView<<V::View as View<'world>>::Fetch>),
     {
-        for chunk in self.iter_chunks_unchecked(world) {
+        // safety: the caller upholds the aliasing contract of this function
+        for chunk in unsafe { self.iter_chunks_unchecked(world) } {
             f(chunk);
         }
     }
@@ -598,7 +604,8 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         Body: Fn(ChunkView<<V::View as View<'a>>::Fetch>) + Send + Sync,
     {
         use rayon::iter::ParallelIterator;
-        self.par_iter_chunks_unchecked(world).for_each(f);
+        // safety: the caller upholds the aliasing contract of this function
+        unsafe { self.par_iter_chunks_unchecked(world) }.for_each(f);
     }
 
     /// Iterates through all entity chunks which match the query.
@@ -678,7 +685,8 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         Body: FnMut(<V::View as View<'world>>::Element),
     {
         // we use a nested loop because it is significantly faster than .flatten()
-        for chunk in self.iter_chunks_unchecked(world) {
+        // safety: the caller upholds the aliasing contract of this function
+        for chunk in unsafe { self.iter_chunks_unchecked(world) } {
             for entities in chunk {
                 f(entities);
             }
@@ -700,7 +708,8 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         Body: Fn(<V::View as View<'a>>::Element) + Send + Sync,
     {
         use rayon::iter::ParallelIterator;
-        self.par_iter_unchecked(world).for_each(&f);
+        // safety: the caller upholds the aliasing contract of this function
+        unsafe { self.par_iter_unchecked(world) }.for_each(&f);
     }
 
     /// Iterates through all components which match the query.

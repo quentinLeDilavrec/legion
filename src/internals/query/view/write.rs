@@ -98,7 +98,7 @@ impl<'data, T: Component> View<'data> for Write<T> {
 
         if query.is_ordered() {
             WriteIter::Grouped {
-                slices: components.iter_mut(query.range().start, query.range().end),
+                slices: unsafe { components.iter_mut(query.range().start, query.range().end) },
             }
         } else {
             WriteIter::Indexed {

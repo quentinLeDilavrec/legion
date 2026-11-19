@@ -9,6 +9,8 @@ status = [
     "Tests (ubuntu-latest, stable)",
     "Tests (ubuntu-latest, beta)",
 #    "Tests (ubuntu-latest, nightly)",
+    "Lints",
+    "MSRV (1.85)",
 ]
 
 # Do not allow pull requests with these labels to be merged.

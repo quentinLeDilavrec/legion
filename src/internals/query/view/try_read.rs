@@ -243,7 +243,7 @@ unsafe impl<'a, T: Component> TrustedRandomAccess for Data<'a, T> {
     #[inline]
     unsafe fn get_unchecked(&mut self, i: usize) -> Self::Item {
         match self {
-            Self::Occupied(slice) => Some(slice.get_unchecked(i)),
+            Self::Occupied(slice) => Some(unsafe { slice.get_unchecked(i) }),
             Self::Empty(_) => None,
         }
     }

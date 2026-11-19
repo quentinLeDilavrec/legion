@@ -133,7 +133,7 @@ impl<'a, T: Component> ComponentWriter<'a, T> {
     /// copied is not accessed until it is re-initialized. It is recommended to immediately
     /// `std::mem::forget` the source after calling `extend_memcopy`.
     pub unsafe fn extend_memcopy(&mut self, ptr: *const T, len: usize) {
-        self.components.extend_memcopy(self.archetype, ptr, len)
+        unsafe { self.components.extend_memcopy(self.archetype, ptr, len) }
     }
 
     /// Ensures that the given spare capacity is available in the target storage location.
@@ -161,7 +161,7 @@ impl<'a> UnknownComponentWriter<'a> {
     /// copied is not accessed until it is re-initialized. It is recommended to immediately
     /// `std::mem::forget` the source after calling `extend_memcopy`.
     pub unsafe fn extend_memcopy_raw(&mut self, ptr: *const u8, len: usize) {
-        self.components.extend_memcopy_raw(self.archetype, ptr, len)
+        unsafe { self.components.extend_memcopy_raw(self.archetype, ptr, len) }
     }
 
     /// Ensures that the given spare capacity is available in the target storage location.

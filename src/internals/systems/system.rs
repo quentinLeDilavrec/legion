@@ -177,13 +177,13 @@ where
         // As the fetch struct is created on the stack here, and the resources it is holding onto is a parameter to this function,
         // we know for certain that the lifetime of the fetch struct (which constrains the lifetime of the resource the system sees)
         // must be shorter than the lifetime of the resource.
-        let resources_static = &*(resources as *const UnsafeResources);
-        let mut resources = R::fetch_unchecked(resources_static);
+        let resources_static = unsafe { &*(resources as *const UnsafeResources) };
+        let mut resources = unsafe { R::fetch_unchecked(resources_static) };
 
         let queries = &mut self.queries;
         let component_access = ComponentAccess::Allow(Cow::Borrowed(&self.access.components));
         let mut world_shim =
-            SubWorld::new_unchecked(world, component_access, self.archetypes.bitset());
+            unsafe { SubWorld::new_unchecked(world, component_access, self.archetypes.bitset()) };
         let cmd = self
             .command_buffer
             .entry(world.id())

@@ -39,8 +39,6 @@
 //!     .unwrap();
 //! ```
 
-#[cfg(feature = "type-uuid")]
-pub use crate::internals::serialize::SerializableTypeUuid;
 pub use crate::internals::serialize::{
     de::WorldDeserializer,
     id::{set_entity_serializer, Canon, CustomEntitySerializer, EntityName, EntitySerializer},

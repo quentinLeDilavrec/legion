@@ -111,12 +111,12 @@ unsafe impl Sync for SystemBox {}
 
 impl SystemBox {
     unsafe fn get(&self) -> &dyn ParallelRunnable {
-        std::ops::Deref::deref(&*self.0.get())
+        unsafe { std::ops::Deref::deref(&*self.0.get()) }
     }
 
     #[allow(clippy::mut_from_ref)]
     unsafe fn get_mut(&self) -> &mut dyn ParallelRunnable {
-        std::ops::DerefMut::deref_mut(&mut *self.0.get())
+        unsafe { std::ops::DerefMut::deref_mut(&mut *self.0.get()) }
     }
 }
 
@@ -401,12 +401,12 @@ impl Executor {
     #[cfg(feature = "parallel")]
     unsafe fn run_recursive(&self, i: usize, world: &World, resources: &UnsafeResources) {
         // safety: the caller ensures nothing else is accessing systems[i]
-        self.systems[i].get_mut().run_unsafe(world, resources);
+        unsafe { self.systems[i].get_mut().run_unsafe(world, resources) };
 
         self.static_dependants[i].par_iter().for_each(|dep| {
             if self.awaiting[*dep].fetch_sub(1, Ordering::Relaxed) == 1 {
                 // safety: each dependency is unique, so run_recursive is safe to call
-                self.run_recursive(*dep, world, resources);
+                unsafe { self.run_recursive(*dep, world, resources) };
             }
         });
     }

@@ -209,7 +209,7 @@ macro_rules! impl_view_tuple {
                 MapInto::new(
                     multizip(
                         (
-                            $( $ty::fetch(components, archetypes, query.clone()), )*
+                            $( unsafe { $ty::fetch(components, archetypes, query.clone()) }, )*
                         )
                     )
                 )

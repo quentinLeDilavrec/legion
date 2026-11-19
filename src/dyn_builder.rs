@@ -1,6 +1,4 @@
 //! Mixing hecs entity builder with IntoComponentSource to dynamically build entities.
-//!
-//!
 
 use std::alloc::Layout;
 use std::any::TypeId;

@@ -172,7 +172,7 @@ macro_rules! impl_resource_tuple {
             type Result = ($( $ty::Result, )*);
 
             unsafe fn fetch_unchecked(resources: &'a UnsafeResources) -> Self::Result {
-                ($( $ty::fetch_unchecked(resources), )*)
+                ($( unsafe { $ty::fetch_unchecked(resources) }, )*)
             }
         }
     };

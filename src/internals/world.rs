@@ -316,7 +316,7 @@ impl World {
     ) -> Result<EntryMut<'_>, EntityAccessError> {
         self.entities
             .get(entity)
-            .map(|location| {
+            .map(|location| unsafe {
                 EntryMut::new(
                     location,
                     &self.components,

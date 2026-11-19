@@ -152,7 +152,7 @@ impl<T> ComponentVec<T> {
     unsafe fn extend_memcopy(&mut self, epoch: Epoch, ptr: *const T, count: usize) {
         self.ensure_capacity(epoch, count);
         let (dst, len) = self.as_raw_slice();
-        std::ptr::copy_nonoverlapping(ptr, dst.as_ptr().add(len), count);
+        unsafe { std::ptr::copy_nonoverlapping(ptr, dst.as_ptr().add(len), count) };
         match self {
             Self::Packed { len, .. } => *len += count,
             Self::Loose {
@@ -239,7 +239,7 @@ impl<T> ComponentVec<T> {
         let (ptr, len) = self.as_raw_slice();
         debug_assert_ne!(std::mem::size_of::<T>(), 0);
         debug_assert!(dst.cap >= offset + len);
-        std::ptr::copy_nonoverlapping(ptr.as_ptr(), dst.ptr.as_ptr().add(offset), len);
+        unsafe { std::ptr::copy_nonoverlapping(ptr.as_ptr(), dst.ptr.as_ptr().add(offset), len) };
         *self = Self::Packed {
             raw: dst,
             offset,
@@ -492,7 +492,7 @@ impl<T: Component> UnknownComponentStorage for PackedStorage<T> {
     ) -> Option<(*mut u8, usize)> {
         let slice_index = *self.index.get(archetype as usize)?;
         let (ptr, len) = self.slices.get(slice_index)?;
-        *self.versions.get_unchecked(slice_index).get() = next_component_version();
+        unsafe { *self.versions.get_unchecked(slice_index).get() = next_component_version() };
         Some((ptr.as_ptr() as *mut u8, *len))
     }
 
@@ -504,10 +504,10 @@ impl<T: Component> UnknownComponentStorage for PackedStorage<T> {
     ) {
         let slice_index = self.index[archetype as usize];
         let allocation = &mut self.allocations[slice_index];
-        allocation.extend_memcopy(self.epoch, ptr as *const T, count);
+        unsafe { allocation.extend_memcopy(self.epoch, ptr as *const T, count) };
         self.slices[slice_index] = allocation.as_raw_slice();
         self.entity_len += count;
-        *self.versions[slice_index].get() = next_component_version();
+        unsafe { *self.versions[slice_index].get() = next_component_version() };
     }
 
     fn increment_epoch(&mut self) {
@@ -539,7 +539,7 @@ impl<'a, T: Component> ComponentStorage<'a, T> for PackedStorage<T> {
     type IterMut = ComponentIterMut<'a, T>;
 
     unsafe fn extend_memcopy(&mut self, archetype: ArchetypeIndex, ptr: *const T, count: usize) {
-        self.extend_memcopy_raw(archetype, ptr as *const u8, count);
+        unsafe { self.extend_memcopy_raw(archetype, ptr as *const u8, count) };
     }
 
     fn get(&'a self, ArchetypeIndex(archetype): ArchetypeIndex) -> Option<ComponentSlice<'a, T>> {
@@ -556,8 +556,8 @@ impl<'a, T: Component> ComponentStorage<'a, T> for PackedStorage<T> {
     ) -> Option<ComponentSliceMut<'a, T>> {
         let slice_index = *self.index.get(archetype as usize)?;
         let (ptr, len) = self.slices.get(slice_index)?;
-        let slice = std::slice::from_raw_parts_mut(ptr.as_ptr(), *len as usize);
-        let version = &mut *self.versions.get_unchecked(slice_index).get();
+        let slice = unsafe { std::slice::from_raw_parts_mut(ptr.as_ptr(), *len as usize) };
+        let version = unsafe { &mut *self.versions.get_unchecked(slice_index).get() };
         Some(ComponentSliceMut::new(slice, version))
     }
 

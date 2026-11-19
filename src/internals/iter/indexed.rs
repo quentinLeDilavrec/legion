@@ -18,7 +18,7 @@ unsafe impl<'a, T> TrustedRandomAccess for &'a [T] {
 
     #[inline]
     unsafe fn get_unchecked(&mut self, i: usize) -> Self::Item {
-        &*self.as_ptr().add(i)
+        unsafe { &*self.as_ptr().add(i) }
     }
 
     #[inline]
@@ -37,7 +37,7 @@ unsafe impl<'a, T> TrustedRandomAccess for &'a mut [T] {
 
     #[inline]
     unsafe fn get_unchecked(&mut self, i: usize) -> Self::Item {
-        &mut *self.as_mut_ptr().add(i)
+        unsafe { &mut *self.as_mut_ptr().add(i) }
     }
 
     #[inline]
@@ -155,7 +155,7 @@ unsafe impl<T: TrustedRandomAccess> TrustedRandomAccess for IndexedIter<T> {
 
     #[inline]
     unsafe fn get_unchecked(&mut self, i: usize) -> Self::Item {
-        self.inner.get_unchecked(i)
+        unsafe { self.inner.get_unchecked(i) }
     }
 
     fn split_at(self, index: usize) -> (Self, Self) {
@@ -198,15 +198,15 @@ macro_rules! impl_zip_slices {
                 #[inline]
                 fn len(&self) -> usize {
                     let len = usize::MAX;
-                    let ($(ref $ty,)*) = self;
+                    let ($($ty,)*) = self;
                     $( let len = std::cmp::min(len, $ty.len()); )*
                     len
                 }
 
                 #[inline]
                 unsafe fn get_unchecked(&mut self, i: usize) -> Self::Item {
-                    let ($(ref mut $ty,)*) = self;
-                    ($( $ty.get_unchecked(i), )*)
+                    let ($($ty,)*) = self;
+                    ($( unsafe { $ty.get_unchecked(i) }, )*)
                 }
 
                 fn split_at(self, index: usize) -> (Self, Self) {
@@ -374,7 +374,7 @@ mod test {
         let collected: Vec<(&i32, &u32)> = iter.collect();
 
         assert_eq!(collected.len(), 5);
-        for (i, (ref x, ref y)) in collected.iter().enumerate() {
+        for (i, (x, y)) in collected.iter().enumerate() {
             assert_eq!(&values_a[i], *x);
             assert_eq!(&values_b[i], *y);
         }
@@ -390,7 +390,7 @@ mod test {
         let collected: Vec<(&i32, &u32)> = iter.collect();
 
         assert_eq!(collected.len(), 5);
-        for (i, (ref x, ref y)) in collected.iter().enumerate() {
+        for (i, (x, y)) in collected.iter().enumerate() {
             assert_eq!(&values_a[i], *x);
             assert_eq!(&values_b[i], *y);
         }

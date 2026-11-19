@@ -117,7 +117,7 @@ impl<'a> EntryRef<'a> {
         let archetype = self.location.archetype();
         self.components
             .get_downcast::<T>()
-            .and_then(move |storage| storage.get_mut(archetype))
+            .and_then(move |storage| unsafe { storage.get_mut(archetype) })
             .and_then(move |slice| slice.into_slice().get_mut(component.0))
             .ok_or_else(|| {
                 ComponentError::NotFound {
@@ -156,6 +156,7 @@ impl<'a> EntryRef<'a> {
     /// # Safety
     /// This function bypasses static borrow checking. The caller must ensure that the component reference
     /// will not be mutably aliased.
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn get_component_unchecked<T: Component>(&self) -> Result<&mut T, ComponentError> {
         let component_type = ComponentTypeId::of::<T>();
         if !self.allowed_components.allows_write(component_type) {
@@ -169,7 +170,7 @@ impl<'a> EntryRef<'a> {
         let archetype = self.location.archetype();
         self.components
             .get_downcast::<T>()
-            .and_then(move |storage| storage.get_mut(archetype))
+            .and_then(move |storage| unsafe { storage.get_mut(archetype) })
             .and_then(move |slice| slice.into_slice().get_mut(component.0))
             .ok_or_else(|| {
                 ComponentError::NotFound {
@@ -257,7 +258,7 @@ impl<'a> EntryMut<'a> {
         let archetype = self.location.archetype();
         self.components
             .get_downcast::<T>()
-            .and_then(move |storage| storage.get_mut(archetype))
+            .and_then(move |storage| unsafe { storage.get_mut(archetype) })
             .and_then(move |slice| slice.into_slice().get_mut(component.0))
             .ok_or_else(|| {
                 ComponentError::NotFound {
@@ -305,6 +306,7 @@ impl<'a> EntryMut<'a> {
     ///
     /// # Safety
     /// The caller must ensure that the component reference will not be mutably aliased.
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn get_component_unchecked<T: Component>(&self) -> Result<&mut T, ComponentError> {
         let component_type = ComponentTypeId::of::<T>();
         if !self
@@ -321,7 +323,7 @@ impl<'a> EntryMut<'a> {
         let archetype = self.location.archetype();
         self.components
             .get_downcast::<T>()
-            .and_then(move |storage| storage.get_mut(archetype))
+            .and_then(move |storage| unsafe { storage.get_mut(archetype) })
             .and_then(move |slice| slice.into_slice().get_mut(component.0))
             .ok_or_else(|| {
                 ComponentError::NotFound {
@@ -396,7 +398,7 @@ impl<'a> Entry<'a> {
         self.world
             .components()
             .get_downcast::<T>()
-            .and_then(move |storage| storage.get_mut(archetype))
+            .and_then(move |storage| unsafe { storage.get_mut(archetype) })
             .and_then(move |slice| slice.into_slice().get_mut(component.0))
             .ok_or_else(|| {
                 ComponentError::NotFound {
@@ -434,13 +436,14 @@ impl<'a> Entry<'a> {
     /// # Safety
     /// This function bypasses static borrow checking. The caller must ensure that the component reference
     /// will not be mutably aliased.
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn get_component_unchecked<T: Component>(&self) -> Result<&mut T, ComponentError> {
         let component = self.location.component();
         let archetype = self.location.archetype();
         self.world
             .components()
             .get_downcast::<T>()
-            .and_then(move |storage| storage.get_mut(archetype))
+            .and_then(move |storage| unsafe { storage.get_mut(archetype) })
             .and_then(move |slice| slice.into_slice().get_mut(component.0))
             .ok_or_else(|| {
                 ComponentError::NotFound {
