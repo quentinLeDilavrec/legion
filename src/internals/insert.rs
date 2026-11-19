@@ -429,10 +429,6 @@ macro_rules! impl_component_source {
             }
         }
 
-        // impl<$( $ty: Component ),*> IntoComponentSource for ($( Vec<$ty>, )*) {
-        //     type Source = Soa<($( SoaElement<$ty>, )*)>;
-        //     fn into(self) -> Self::Source { Soa::<($( SoaElement<$ty>, )*)>::new(self) }
-        // }
 
         impl<$( $ty ),*> IntoComponentSource for Soa<($( SoaElement<$ty>, )*)>
         where
@@ -501,18 +497,6 @@ macro_rules! impl_component_source {
             fn into(self) -> Self::Source { self }
         }
 
-        // impl<Iter, $( $ty: Component ),*> LayoutFilter for Aos<($( $ty, )*), Iter>
-        // where
-        //     Iter: Iterator<Item = ($( $ty, )*)>
-        // {
-        //     fn matches_layout(
-        //         &self,
-        //         components: &[ComponentTypeId],
-        //     ) -> Option<bool> {
-        //         let types = &[$( ComponentTypeId::of::<$ty>() ),*];
-        //         Some(components.len() == types.len() && types.iter().all(|t| components.contains(t)))
-        //     }
-        // }
 
         impl<Iter, $( $ty: Component ),*> ArchetypeSource for Aos<($( $ty, )*), Iter>
         where

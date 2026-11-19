@@ -11,16 +11,6 @@ use query::Query;
 struct Pos(f32, f32, f32);
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Rot(f32, f32, f32);
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct Scale(f32, f32, f32);
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct Vel(f32, f32, f32);
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct Accel(f32, f32, f32);
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-struct Model(u32);
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-struct Static;
 
 #[test]
 fn query_read_entity_data() {

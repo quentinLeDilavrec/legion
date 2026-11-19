@@ -21,9 +21,6 @@ struct E(f32);
 struct F(f32);
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-struct Tag(f32);
-
-#[derive(Copy, Clone, Debug, PartialEq)]
 struct Position(f32);
 
 #[derive(Copy, Clone, Debug, PartialEq)]

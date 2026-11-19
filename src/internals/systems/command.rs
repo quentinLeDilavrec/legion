@@ -135,26 +135,6 @@ impl<'a, T, A: Iterator<Item = T> + FusedIterator, B: Iterator<Item = T>> Iterat
     }
 }
 
-struct InsertCommand<T> {
-    components: T,
-}
-
-impl<T> fmt::Debug for InsertCommand<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("InsertCommand<{}>", type_name::<T>()))
-    }
-}
-
-impl<T> WorldWritable for InsertCommand<T>
-where
-    T: IntoComponentSource + Send + Sync,
-{
-    fn write(self: Arc<Self>, world: &mut World, _: &CommandBuffer) {
-        let consumed = Arc::try_unwrap(self).unwrap();
-        world.extend(consumed.components);
-    }
-}
-
 struct DeleteEntityCommand(Entity);
 
 impl fmt::Debug for DeleteEntityCommand {
@@ -393,8 +373,6 @@ mod tests {
     struct Pos(f32, f32, f32);
     #[derive(Clone, Copy, Debug, PartialEq)]
     struct Vel(f32, f32, f32);
-    #[derive(Default)]
-    struct TestResource(pub i32);
 
     #[test]
     fn simple_write_test() {
@@ -410,12 +388,7 @@ mod tests {
         let mut command = CommandBuffer::new(&world);
         let _ = command.extend(components);
 
-        // Assert writing checks
-        // TODO:
-        //assert_eq!(
-        //    vec![ComponentTypeId::of::<Pos>(), ComponentTypeId::of::<Vel>()],
-        //    command.write_components()
-        //);
+        // TODO: assert the component types written by the command buffer
 
         command.flush(&mut world, &mut resources);
 

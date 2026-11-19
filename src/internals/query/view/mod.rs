@@ -160,15 +160,6 @@ pub struct MultiFetch<'a, T> {
     _phantom: PhantomData<&'a T>,
 }
 
-// impl<'a, T> From<T> for MultiFetch<'a, T> {
-//     fn from(value: T) -> Self {
-//         Self {
-//             fetches: value,
-//             _phantom: PhantomData,
-//         }
-//     }
-// }
-
 macro_rules! view_tuple {
     ($head_ty:ident) => {
         impl_view_tuple!($head_ty);

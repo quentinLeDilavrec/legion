@@ -27,6 +27,7 @@
 //        ||                ,'   /    |
 
 /// Prepend a new type into a cons list
+#[cfg(test)]
 pub trait ConsPrepend<T> {
     /// Result of prepend
     type Output;
@@ -34,6 +35,7 @@ pub trait ConsPrepend<T> {
     fn prepend(self, t: T) -> Self::Output;
 }
 
+#[cfg(test)]
 impl<T> ConsPrepend<T> for () {
     type Output = (T, Self);
     fn prepend(self, t: T) -> Self::Output {
@@ -41,6 +43,7 @@ impl<T> ConsPrepend<T> for () {
     }
 }
 
+#[cfg(test)]
 impl<T, A, B> ConsPrepend<T> for (A, B) {
     type Output = (T, Self);
     fn prepend(self, t: T) -> Self::Output {

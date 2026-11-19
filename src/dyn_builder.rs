@@ -69,8 +69,6 @@ pub struct TypeInfo {
     id: ComponentTypeId,
     layout: Layout,
     drop: unsafe fn(*mut u8),
-    // #[cfg(debug_assertions)]
-    // type_name: &'static str,
 }
 
 impl TypeInfo {
@@ -84,24 +82,8 @@ impl TypeInfo {
             id: ComponentTypeId::of::<T>(),
             layout: Layout::new::<T>(),
             drop: drop_ptr::<T>,
-            // #[cfg(debug_assertions)]
-            // type_name: core::any::type_name::<T>(),
         }
     }
-
-    // /// Construct a `TypeInfo` from its components. This is useful in the rare case that you have
-    // /// some kind of pointer to raw bytes/erased memory holding a component type, coming from a
-    // /// source unrelated to hecs, and you want to treat it as an insertable component by
-    // /// implementing the `DynamicBundle` API.
-    // pub fn from_parts(id: ComponentTypeId, layout: Layout, drop: unsafe fn(*mut u8)) -> Self {
-    //     Self {
-    //         id,
-    //         layout,
-    //         drop,
-    //         // #[cfg(debug_assertions)]
-    //         // type_name: "<unknown> (TypeInfo constructed from parts)",
-    //     }
-    // }
 
     /// Access the `TypeId` for this component type.
     pub fn id(&self) -> ComponentTypeId {
@@ -226,11 +208,6 @@ impl<M> EntityBuilder<M> {
         self.indices.clear();
         self.inner.cursor = 0;
         // NOTE we do not clone stuff and use everything, thus we do not need to drop things pointed by structures in storage
-        // unsafe {
-        //     for (ty, offset, _) in self.info.drain(..) {
-        //         ty.drop(self.storage.as_ptr().add(offset));
-        //     }
-        // }
     }
 
     unsafe fn _add(&mut self, ptr: *mut u8, ty: TypeInfo, meta: M) {

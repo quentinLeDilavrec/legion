@@ -8,14 +8,6 @@ struct Pos(f32, f32, f32);
 struct Rot(f32, f32, f32);
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Scale(f32, f32, f32);
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct Vel(f32, f32, f32);
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct Accel(f32, f32, f32);
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-struct Model(u32);
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-struct Static;
 
 #[test]
 fn insert() {
@@ -293,7 +285,6 @@ fn delete_entities_on_drop() {
 
     world.subscribe(tx, any());
 
-    //ManuallyDrop::drop(&mut world);
     std::mem::drop(world);
 
     for e in rx {

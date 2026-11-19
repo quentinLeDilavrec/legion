@@ -79,30 +79,6 @@ fn setup(data: &[Variants]) -> World {
     world
 }
 
-fn setup_ideal(data: &[Variants]) -> (Vec<(A, B)>, Vec<(A, C)>) {
-    let mut ab = Vec::<(A, B)>::new();
-    let mut ac = Vec::<(A, C)>::new();
-
-    for v in data {
-        match v {
-            Variants::Ab(a, b) => ab.push((*a, *b)),
-            Variants::Ac(a, c) => ac.push((*a, *c)),
-        };
-    }
-
-    (ab, ac)
-}
-
-fn ideal(ab: &mut Vec<(A, B)>, ac: &mut Vec<(A, C)>) {
-    for (a, b) in ab.iter_mut() {
-        b.0 = a.0;
-    }
-
-    for (a, c) in ac.iter_mut() {
-        c.0 = a.0;
-    }
-}
-
 fn sequential(world: &mut World) {
     for (b, a) in <(Write<B>, Read<A>)>::query().iter_mut(world) {
         b.0 = a.0;
@@ -129,18 +105,6 @@ fn parallel(world: &mut World) {
 }
 
 fn par_for_each_mut(world: &mut World) {
-    // join(
-    //     || unsafe {
-    //         <(Write<B>, Read<A>)>::query().par_for_each_unchecked(world, |(b, a)| {
-    //             b.0 = a.0;
-    //         });
-    //     },
-    //     || unsafe {
-    //         <(Write<C>, Read<A>)>::query().par_for_each_unchecked(world, |(c, a)| {
-    //             c.0 = a.0;
-    //         });
-    //     },
-    // );
     use rayon::iter::{IntoParallelIterator, ParallelIterator};
     join(
         || unsafe {

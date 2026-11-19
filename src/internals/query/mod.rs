@@ -912,31 +912,6 @@ where
     }
 }
 
-// impl<'world, 'query, I, F> Iterator for ChunkIter<'world, 'query, I, Passthrough, F>
-// where
-//     I: Iterator<Item = (ArchetypeIndex, F)>,
-//     F: Fetch,
-// {
-//     type Item = ChunkView<'world, F>;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         for (index, mut fetch) in &mut self.inner {
-//             fetch.accepted();
-//             return Some(ChunkView::new(&self.archetypes[index], fetch));
-//         }
-//         None
-//     }
-
-//     fn size_hint(&self) -> (usize, Option<usize>) { (self.max_count, Some(self.max_count)) }
-// }
-
-// impl<'world, 'query, I, F> ExactSizeIterator for ChunkIter<'world, 'query, I, Passthrough, F>
-// where
-//     I: Iterator<Item = (ArchetypeIndex, F)> + ExactSizeIterator,
-//     F: Fetch,
-// {
-// }
-
 #[cfg(feature = "parallel")]
 pub mod par_iter {
     use std::marker::PhantomData;

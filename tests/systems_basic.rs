@@ -39,7 +39,7 @@ mod tests {
 
     #[test]
     fn with_not_sendsync_resource() {
-        struct NotSync(*const usize);
+        struct NotSync(#[allow(dead_code)] *const usize);
 
         #[system]
         fn basic(#[resource] _: &NotSync) {}
@@ -49,7 +49,7 @@ mod tests {
 
     #[test]
     fn with_mut_not_sendsync_resource() {
-        struct NotSync(*const usize);
+        struct NotSync(#[allow(dead_code)] *const usize);
 
         #[system]
         fn basic(#[resource] _: &mut NotSync) {}

@@ -4,8 +4,6 @@ use legion::*;
 fn bench_insert_zero_baseline(c: &mut Criterion) {
     c.bench_function("insert_zero_baseline", |b| {
         b.iter(|| {
-            //let universe = Universe::new();
-            //let mut world = universe.create_world();
             let components: Vec<isize> = (0..10000).collect();
             std::hint::black_box(components);
         });

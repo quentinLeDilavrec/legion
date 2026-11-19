@@ -308,7 +308,6 @@ where
             let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
             (deserialize)(storage, &mut deserializer).map_err(D::Error::custom)
         } else {
-            //Err(D::Error::custom("unrecognized component type"))
             panic!()
         }
     }
@@ -323,7 +322,6 @@ where
             let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
             (deserialize)(&mut deserializer).map_err(D::Error::custom)
         } else {
-            //Err(D::Error::custom("unrecognized component type"))
             panic!()
         }
     }
