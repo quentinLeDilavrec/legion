@@ -18,8 +18,7 @@ extended-tuple-impls = []
 serialize = ["serde", "erased-serde", "uuid/serde", "scoped-tls-hkt"]
 crossbeam-events = ["crossbeam-channel"]
 codegen = ["legion_codegen"]
-stdweb = ["uuid/stdweb"]
-wasm-bindgen = ["uuid/wasm-bindgen"]
+wasm-bindgen = ["uuid/js"]
 
 [dependencies]
 legion_codegen = { path = "codegen", version = "0.4.0", optional = true }
@@ -30,7 +29,7 @@ paste = "1.0.15"
 parking_lot = "0.12"
 bit-set = "0.11"
 thiserror = "2.0"
-uuid = { version = "0.8", features = ["v4"] }
+uuid = { version = "1.26", features = ["v4"] }
 rayon = { version = "1.12", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 scoped-tls-hkt = { version = "0.1", optional = true }
