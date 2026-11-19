@@ -49,7 +49,7 @@ fn data(n: usize) -> Vec<Variants> {
 fn setup(data: &[Variants]) -> World {
     let mut world = World::default();
 
-    for (i, group) in &data.iter().group_by(|x| index(**x)) {
+    for (i, group) in &data.iter().chunk_by(|x| index(**x)) {
         match i {
             0 => world.extend(
                 group
