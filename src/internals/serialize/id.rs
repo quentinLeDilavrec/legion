@@ -71,7 +71,7 @@ scoped_thread_local! {
 
 /// Sets the [`EntitySerializer`] currently being used to serialize or deserialize [`Entity`] IDs.
 ///
-/// This is set automatically when serializing or deserializing a [`World`]. When serializing or
+/// This is set automatically when serializing or deserializing a [`World`](crate::world::World). When serializing or
 /// deserializing values outside a `World`, this needs to be set manually, passing in a reference
 /// to the `EntitySerializer` and a closure that does the serializing/deserializing.
 /// ```
