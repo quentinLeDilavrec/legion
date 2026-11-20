@@ -300,8 +300,8 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     }
 
     /// Returns the components for a single entity.
-    pub fn get_mut<'query, 'world, T>(
-        &'query mut self,
+    pub fn get_mut<'world, T>(
+        &mut self,
         world: &'world mut T,
         entity: Entity,
     ) -> Result<<V::View as View<'world>>::Element, EntityAccessError>

@@ -31,19 +31,19 @@ pub trait IntoView {
     type View: for<'a> View<'a> + 'static;
 }
 
-impl<'a, T: Component> IntoView for &'a T {
+impl<T: Component> IntoView for &T {
     type View = read::Read<T>;
 }
 
-impl<'a, T: Component> IntoView for &'a mut T {
+impl<T: Component> IntoView for &mut T {
     type View = write::Write<T>;
 }
 
-impl<'a, T: Component> IntoView for Option<&'a T> {
+impl<T: Component> IntoView for Option<&T> {
     type View = try_read::TryRead<T>;
 }
 
-impl<'a, T: Component> IntoView for Option<&'a mut T> {
+impl<T: Component> IntoView for Option<&mut T> {
     type View = try_write::TryWrite<T>;
 }
 

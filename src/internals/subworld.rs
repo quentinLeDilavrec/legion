@@ -30,12 +30,10 @@ impl ArchetypeAccess {
     pub fn is_disjoint(&self, other: &ArchetypeAccess) -> bool {
         match self {
             Self::All => false,
-            Self::Some(mine) => {
-                match other {
-                    Self::All => false,
-                    Self::Some(theirs) => mine.is_disjoint(theirs),
-                }
-            }
+            Self::Some(mine) => match other {
+                Self::All => false,
+                Self::Some(theirs) => mine.is_disjoint(theirs),
+            },
         }
     }
 
@@ -229,9 +227,9 @@ impl<'a> SubWorld<'a> {
 
     /// Splits the world into two. The left world allows access only to the data declared by the query's view;
     /// the right world allows access to all else.
-    pub fn split_for_query<'q, V: IntoView, F: EntityFilter>(
+    pub fn split_for_query<V: IntoView, F: EntityFilter>(
         &mut self,
-        _: &'q Query<V, F>,
+        _: &Query<V, F>,
     ) -> (SubWorld<'_>, SubWorld<'_>) {
         self.split::<V>()
     }

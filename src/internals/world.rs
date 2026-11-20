@@ -522,9 +522,9 @@ impl World {
 
     /// Splits the world into two. The left world allows access only to the data declared by the query's view;
     /// the right world allows access to all else.
-    pub fn split_for_query<'q, V: IntoView, F: EntityFilter>(
+    pub fn split_for_query<V: IntoView, F: EntityFilter>(
         &mut self,
-        _: &'q Query<V, F>,
+        _: &Query<V, F>,
     ) -> (SubWorld<'_>, SubWorld<'_>) {
         self.split::<V>()
     }
