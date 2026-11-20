@@ -29,7 +29,7 @@ impl EntityBuilder {
         // Safety: `component` is a valid instance of `T`.
         unsafe {
             self._add(
-                (&mut component as *mut T).cast(),
+                std::ptr::from_mut(&mut component).cast(),
                 TypeInfo::of::<T>(),
                 || Box::new(T::Storage::default()),
             );
@@ -86,7 +86,7 @@ impl<M> EntityBuilder<M> {
                 // Safety: `component` is a valid instance of `T`; ownership is moved into the
                 // builder's storage by the bitwise copy, so we must not drop it here.
                 let addr = unsafe {
-                    let ptr = (&mut component as *mut T).cast();
+                    let ptr = std::ptr::from_mut(&mut component).cast();
                     self.inner.push(ty, ptr, vacant, meta)
                 };
                 core::mem::forget(component);

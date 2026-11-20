@@ -11,6 +11,26 @@ license = "MIT"
 edition = "2024"
 rust-version = "1.85"
 
+[workspace]
+members = ["codegen"]
+
+# Lints shared by every crate in the workspace (opt in with `[lints] workspace = true`).
+# CI runs clippy with `-D warnings`, so these are warnings locally and errors in CI.
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+unused_lifetimes = "warn"
+# unused_qualifications = "warn" # to many false positives
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unused_import_braces = "warn"
+# unused_macro_rules = "warn" # minor
+unit_bindings = "warn"
+let_underscore_drop = "warn"
+explicit_outlives_requirements = "warn"
+
+[lints]
+workspace = true
+
 [features]
 default = ["parallel", "serialize", "crossbeam-events", "codegen"]
 parallel = ["rayon"]

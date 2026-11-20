@@ -11,6 +11,9 @@ license = "MIT"
 edition = "2024"
 rust-version = "1.85"
 
+[lints]
+workspace = true
+
 [lib]
 proc-macro = true
 

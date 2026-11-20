@@ -1049,7 +1049,8 @@ impl Duplicate {
         use crate::internals::storage::ComponentStorage;
 
         let type_id = ComponentTypeId::of::<T>();
-        let constructor = || Box::new(T::Storage::default()) as Box<dyn UnknownComponentStorage>;
+        let constructor =
+            || -> Box<dyn UnknownComponentStorage> { Box::new(T::Storage::default()) };
         let convert = Box::new(
             move |src_entities: Range<usize>,
                   src_arch: &Archetype,
@@ -1086,7 +1087,7 @@ impl Duplicate {
         let source_type = ComponentTypeId::of::<Source>();
         let dest_type = ComponentTypeId::of::<Target>();
         let constructor =
-            || Box::new(Target::Storage::default()) as Box<dyn UnknownComponentStorage>;
+            || -> Box<dyn UnknownComponentStorage> { Box::new(Target::Storage::default()) };
         let convert = Box::new(
             move |src_entities: Range<usize>,
                   src_arch: &Archetype,
@@ -1101,7 +1102,7 @@ impl Duplicate {
                     let component = convert(component);
 
                     unsafe {
-                        dst.extend_memcopy(&component as *const Target, 1);
+                        dst.extend_memcopy(std::ptr::from_ref(&component), 1);
                         std::mem::forget(component);
                     }
                 }
@@ -1502,7 +1503,7 @@ mod test {
         ]);
 
         let mut merger = Duplicate::default();
-        merger.register_convert::<Pos, f32, _>(|comp| comp.0 as f32);
+        merger.register_convert::<Pos, f32, _>(|comp| comp.0);
 
         let map = b.clone_from(&a, &any(), &mut merger);
 

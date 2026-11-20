@@ -448,17 +448,14 @@ impl Builder {
         f: F,
     ) -> &mut Self {
         self.finalize_executor();
-        self.steps.push(Step::ThreadLocalFn(
-            Box::new(f) as Box<dyn FnMut(&mut World, &mut Resources)>
-        ));
+        self.steps.push(Step::ThreadLocalFn(Box::new(f)));
         self
     }
 
     /// Adds a thread local system to the schedule. This system will be executed on the main thread.
     pub fn add_thread_local<S: Runnable + 'static>(&mut self, system: S) -> &mut Self {
         self.finalize_executor();
-        let system = Box::new(system) as Box<dyn Runnable>;
-        self.steps.push(Step::ThreadLocalSystem(system));
+        self.steps.push(Step::ThreadLocalSystem(Box::new(system)));
         self
     }
 

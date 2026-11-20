@@ -34,12 +34,12 @@ fn get_component() {
     }
 
     for (i, e) in entities.iter().enumerate() {
-        match world.entry_ref(*e).unwrap().get_component() {
-            Ok(x) => assert_eq!(components.get(i).map(|(x, _)| x), Some(&x as &Pos)),
+        match world.entry_ref(*e).unwrap().get_component::<Pos>() {
+            Ok(x) => assert_eq!(components.get(i).map(|(x, _)| x), Some(x)),
             Err(_) => assert_eq!(components.get(i).map(|(x, _)| x), None),
         }
-        match world.entry_ref(*e).unwrap().get_component() {
-            Ok(x) => assert_eq!(components.get(i).map(|(_, x)| x), Some(&x as &Rot)),
+        match world.entry_ref(*e).unwrap().get_component::<Rot>() {
+            Ok(x) => assert_eq!(components.get(i).map(|(_, x)| x), Some(x)),
             Err(_) => assert_eq!(components.get(i).map(|(_, x)| x), None),
         }
     }
@@ -137,12 +137,12 @@ fn delete_last() {
 
     for (i, e) in entities.iter().take(entities.len() - 1).enumerate() {
         assert_eq!(true, world.contains(*e));
-        match world.entry_ref(*e).unwrap().get_component() {
-            Ok(x) => assert_eq!(components.get(i).map(|(x, _)| x), Some(&x as &Pos)),
+        match world.entry_ref(*e).unwrap().get_component::<Pos>() {
+            Ok(x) => assert_eq!(components.get(i).map(|(x, _)| x), Some(x)),
             Err(_) => assert_eq!(components.get(i).map(|(x, _)| x), None),
         }
-        match world.entry_ref(*e).unwrap().get_component() {
-            Ok(x) => assert_eq!(components.get(i).map(|(_, x)| x), Some(&x as &Rot)),
+        match world.entry_ref(*e).unwrap().get_component::<Rot>() {
+            Ok(x) => assert_eq!(components.get(i).map(|(_, x)| x), Some(x)),
             Err(_) => assert_eq!(components.get(i).map(|(_, x)| x), None),
         }
     }
@@ -169,12 +169,12 @@ fn delete_first() {
 
     for (i, e) in entities.iter().skip(1).enumerate() {
         assert_eq!(true, world.contains(*e));
-        match world.entry_ref(*e).unwrap().get_component() {
-            Ok(x) => assert_eq!(components.get(i + 1).map(|(x, _)| x), Some(&x as &Pos)),
+        match world.entry_ref(*e).unwrap().get_component::<Pos>() {
+            Ok(x) => assert_eq!(components.get(i + 1).map(|(x, _)| x), Some(x)),
             Err(_) => assert_eq!(components.get(i + 1).map(|(x, _)| x), None),
         }
-        match world.entry_ref(*e).unwrap().get_component() {
-            Ok(x) => assert_eq!(components.get(i + 1).map(|(_, x)| x), Some(&x as &Rot)),
+        match world.entry_ref(*e).unwrap().get_component::<Rot>() {
+            Ok(x) => assert_eq!(components.get(i + 1).map(|(_, x)| x), Some(x)),
             Err(_) => assert_eq!(components.get(i + 1).map(|(_, x)| x), None),
         }
     }
@@ -208,11 +208,11 @@ fn merge() {
         let (pos, rot) = components.get(i).unwrap();
         assert_eq!(
             pos,
-            &world_1.entry(*e).unwrap().get_component().unwrap() as &Pos
+            world_1.entry(*e).unwrap().get_component::<Pos>().unwrap()
         );
         assert_eq!(
             rot,
-            &world_1.entry(*e).unwrap().get_component().unwrap() as &Rot
+            world_1.entry(*e).unwrap().get_component::<Rot>().unwrap()
         );
     }
 }

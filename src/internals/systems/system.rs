@@ -177,7 +177,7 @@ where
         // As the fetch struct is created on the stack here, and the resources it is holding onto is a parameter to this function,
         // we know for certain that the lifetime of the fetch struct (which constrains the lifetime of the resource the system sees)
         // must be shorter than the lifetime of the resource.
-        let resources_static = unsafe { &*(resources as *const UnsafeResources) };
+        let resources_static = unsafe { &*std::ptr::from_ref(resources) };
         let mut resources = unsafe { R::fetch_unchecked(resources_static) };
 
         let queries = &mut self.queries;

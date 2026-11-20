@@ -140,7 +140,7 @@ where
             let component = erased_serde::deserialize::<C>(deserializer)?;
             unsafe {
                 let vec = std::slice::from_raw_parts(
-                    &component as *const C as *const u8,
+                    std::ptr::from_ref(&component).cast::<u8>(),
                     std::mem::size_of::<C>(),
                 )
                 .to_vec();
@@ -365,7 +365,7 @@ impl<'a, 'de, T: Component + for<'b> serde::de::Deserialize<'b>> serde::de::Dese
 
                 while let Some(component) = seq.next_element::<C>()? {
                     unsafe {
-                        let ptr = &component as *const C as *const u8;
+                        let ptr = std::ptr::from_ref(&component).cast::<u8>();
                         self.storage.extend_memcopy_raw(ptr, 1);
                         std::mem::forget(component)
                     }

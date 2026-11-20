@@ -127,12 +127,10 @@ impl<T> ComponentVec<T> {
         match self {
             Self::Packed {
                 raw, offset, len, ..
-            } => {
-                (
-                    unsafe { NonNull::new_unchecked(raw.ptr.as_ptr().add(*offset)) },
-                    *len,
-                )
-            }
+            } => (
+                unsafe { NonNull::new_unchecked(raw.ptr.as_ptr().add(*offset)) },
+                *len,
+            ),
             Self::Loose { raw, len, .. } => {
                 (unsafe { NonNull::new_unchecked(raw.ptr.as_ptr()) }, *len)
             }
@@ -309,7 +307,7 @@ impl<T: Component> PackedStorage<T> {
     ) -> T {
         let slice_index = self.index[archetype as usize];
         let allocation = &mut self.allocations[slice_index];
-        let component = allocation.swap_remove(self.epoch, index as usize);
+        let component = allocation.swap_remove(self.epoch, index);
         self.update_slice(slice_index);
         self.entity_len -= 1;
         component
@@ -338,12 +336,12 @@ impl<T: Component> UnknownComponentStorage for PackedStorage<T> {
 
         // remove component from source slice
         let src_allocation = &mut self.allocations[src_slice_index];
-        let value = src_allocation.swap_remove(self.epoch, index.0 as usize);
+        let value = src_allocation.swap_remove(self.epoch, index.0);
 
         // insert component into destination slice
         let dst_allocation = &mut self.allocations[dst_slice_index];
         unsafe {
-            dst_allocation.extend_memcopy(self.epoch, &value as *const _, 1);
+            dst_allocation.extend_memcopy(self.epoch, std::ptr::from_ref(&value), 1);
             *self.versions[dst_slice_index].get() = next_component_version();
         }
 
@@ -427,7 +425,13 @@ impl<T: Component> UnknownComponentStorage for PackedStorage<T> {
         dst: &mut dyn UnknownComponentStorage,
     ) {
         let component = self.swap_remove_internal(src_archetype, src_component);
-        unsafe { dst.extend_memcopy_raw(dst_archetype, &component as *const T as *const u8, 1) };
+        unsafe {
+            dst.extend_memcopy_raw(
+                dst_archetype,
+                std::ptr::from_ref(&component).cast::<u8>(),
+                1,
+            )
+        };
         std::mem::forget(component);
     }
 
@@ -545,7 +549,7 @@ impl<'a, T: Component> ComponentStorage<'a, T> for PackedStorage<T> {
     fn get(&'a self, ArchetypeIndex(archetype): ArchetypeIndex) -> Option<ComponentSlice<'a, T>> {
         let slice_index = *self.index.get(archetype as usize)?;
         let (ptr, len) = self.slices.get(slice_index)?;
-        let slice = unsafe { std::slice::from_raw_parts(ptr.as_ptr(), *len as usize) };
+        let slice = unsafe { std::slice::from_raw_parts(ptr.as_ptr(), *len) };
         let version = unsafe { &*self.versions.get_unchecked(slice_index).get() };
         Some(ComponentSlice::new(slice, version))
     }
@@ -556,7 +560,7 @@ impl<'a, T: Component> ComponentStorage<'a, T> for PackedStorage<T> {
     ) -> Option<ComponentSliceMut<'a, T>> {
         let slice_index = *self.index.get(archetype as usize)?;
         let (ptr, len) = self.slices.get(slice_index)?;
-        let slice = unsafe { std::slice::from_raw_parts_mut(ptr.as_ptr(), *len as usize) };
+        let slice = unsafe { std::slice::from_raw_parts_mut(ptr.as_ptr(), *len) };
         let version = unsafe { &mut *self.versions.get_unchecked(slice_index).get() };
         Some(ComponentSliceMut::new(slice, version))
     }
@@ -593,7 +597,7 @@ impl<'a, T: Component> Iterator for ComponentIter<'a, T> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.slices.next().map(|((ptr, len), version)| {
-            let slice = unsafe { std::slice::from_raw_parts(ptr.as_ptr(), *len as usize) };
+            let slice = unsafe { std::slice::from_raw_parts(ptr.as_ptr(), *len) };
             let version = unsafe { &*version.get() };
             ComponentSlice::new(slice, version)
         })
@@ -612,7 +616,7 @@ impl<'a, T: Component> Iterator for ComponentIterMut<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         self.slices.next().map(|((ptr, len), version)| {
             // safety: we know each slice is disjoint
-            let slice = unsafe { std::slice::from_raw_parts_mut(ptr.as_ptr(), *len as usize) };
+            let slice = unsafe { std::slice::from_raw_parts_mut(ptr.as_ptr(), *len) };
             let version = unsafe { &mut *version.get() };
             ComponentSliceMut::new(slice, version)
         })

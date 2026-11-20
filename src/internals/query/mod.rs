@@ -198,11 +198,9 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
             };
 
             // else use an unordered result
-            cache.unwrap_or_else(|| {
-                Cache::Unordered {
-                    archetypes: Vec::new(),
-                    seen: 0,
-                }
+            cache.unwrap_or_else(|| Cache::Unordered {
+                archetypes: Vec::new(),
+                seen: 0,
             })
         });
 

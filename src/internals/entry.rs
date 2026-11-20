@@ -482,7 +482,7 @@ impl<'a> Entry<'a> {
                 .components_mut()
                 .get_downcast_mut::<T>()
                 .unwrap()
-                .extend_memcopy(target_arch, &component as *const T, 1);
+                .extend_memcopy(target_arch, &component, 1);
             std::mem::forget(component);
             self.location = EntityLocation::new(target_arch, idx);
         };
