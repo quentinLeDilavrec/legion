@@ -497,10 +497,11 @@ impl Debug for Step {
         match self {
             Step::Systems(x) => f.debug_tuple("Systems").field(&x).finish(),
             Step::FlushCmdBuffers => f.debug_tuple("FlushCmdBuffers").finish(),
-            Step::ThreadLocalFn(_) => f
-                .debug_tuple("ThreadLocalFn")
-                .field(&"dyn FnMut(&mut World, &mut Resources)")
-                .finish(),
+            Step::ThreadLocalFn(_) => {
+                f.debug_tuple("ThreadLocalFn")
+                    .field(&"dyn FnMut(&mut World, &mut Resources)")
+                    .finish()
+            }
             Step::ThreadLocalSystem(x) => f.debug_tuple("ThreadLocalSystem").field(&x).finish(),
         }
     }
@@ -588,9 +589,11 @@ impl Schedule {
                     waiting_flush.push(ToFlush::Executor(executor));
                 }
                 Step::FlushCmdBuffers => {
-                    waiting_flush.drain(..).for_each(|e| match e {
-                        ToFlush::Executor(exec) => exec.flush_command_buffers(world, resources),
-                        ToFlush::System(cmd) => cmd.flush(world, resources),
+                    waiting_flush.drain(..).for_each(|e| {
+                        match e {
+                            ToFlush::Executor(exec) => exec.flush_command_buffers(world, resources),
+                            ToFlush::System(cmd) => cmd.flush(world, resources),
+                        }
                     });
                 }
                 Step::ThreadLocalFn(function) => function(world, resources),

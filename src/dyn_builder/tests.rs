@@ -62,12 +62,20 @@ fn test_cloning() {
     let entry = world.entry(entity).unwrap();
     let got0 = entry.get_component::<(Box<[u32]>,)>().unwrap();
     assert_eq!(got0, &comp0_saved);
-    assert_eq!(got0.0.as_ptr() as usize, comp0_addr, "slice should have been moved");
+    assert_eq!(
+        got0.0.as_ptr() as usize,
+        comp0_addr,
+        "slice should have been moved"
+    );
     assert_eq!(Ok(&comp1), entry.get_component::<i32>());
     assert_eq!(Ok(&comp2), entry.get_component::<bool>());
     let got3 = entry.get_component::<Vec<u64>>().unwrap();
     assert_eq!(got3, &comp3_saved);
-    assert_eq!(got3.as_ptr() as usize, comp3_addr, "vec should have been moved");
+    assert_eq!(
+        got3.as_ptr() as usize,
+        comp3_addr,
+        "vec should have been moved"
+    );
     // `comp4` was cloned on purpose, so the world's copy must own a different buffer.
     let got4 = entry.get_component::<String>().unwrap();
     assert_eq!(got4, &comp4);
@@ -78,7 +86,11 @@ fn test_cloning() {
     ));
 
     drop(world);
-    assert_eq!(Arc::strong_count(&shared), 1, "world must drop it exactly once");
+    assert_eq!(
+        Arc::strong_count(&shared),
+        1,
+        "world must drop it exactly once"
+    );
 }
 
 #[test]

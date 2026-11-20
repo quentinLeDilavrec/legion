@@ -1,6 +1,8 @@
-use std::any::TypeId;
-use std::collections::HashMap;
-use std::hash::{BuildHasher, BuildHasherDefault, DefaultHasher, Hasher};
+use std::{
+    any::TypeId,
+    collections::HashMap,
+    hash::{BuildHasher, BuildHasherDefault, DefaultHasher, Hasher},
+};
 
 /// A hasher optimized for hashing a single TypeId.
 ///

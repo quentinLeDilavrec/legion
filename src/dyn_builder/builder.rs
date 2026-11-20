@@ -1,7 +1,4 @@
-use std::alloc::Layout;
-use std::any::TypeId;
-use std::collections::hash_map;
-use std::ptr::NonNull;
+use std::{alloc::Layout, any::TypeId, collections::hash_map, ptr::NonNull};
 
 use super::{type_id_map::TypeIdMap, type_info::TypeInfo};
 use crate::internals::storage::{
