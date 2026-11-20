@@ -182,7 +182,7 @@
 //! * `parallel` - Enables parallel iterators and parallel schedule execution via the rayon library. Enabled by default.
 //! * `extended-tuple-impls` - Extends the maximum size of view and component tuples from 8 to 24, at the cost of increased compile times. Off by default.
 //! * `serialize` - Enables the serde serialization module and associated functionality. Enabled by default.
-//! * `crossbeam-events` - Implements the `EventSender` trait for crossbeam `Sender` channels, allowing them to be used for event subscriptions. Enabled by default.
+
 //! * `codegen` - Enables the `#[system]` procedural macro. Enabled by default.
 
 // implementation modules

@@ -1,4 +1,8 @@
-use std::{fmt::Debug, iter::Iterator, sync::Arc};
+use std::{
+    fmt::Debug,
+    iter::Iterator,
+    sync::{Arc, Mutex, PoisonError},
+};
 
 use super::{
     entity::Entity,
@@ -27,12 +31,53 @@ pub trait EventSender: Send + Sync {
     fn send(&self, event: Event) -> bool;
 }
 
-#[cfg(feature = "crossbeam-events")]
-impl EventSender for crossbeam_channel::Sender<Event> {
+/// Any closure can act as an event sender, which allows adapting arbitrary channel types.
+/// The closure should return `true` while the subscription should stay alive.
+///
+/// ```
+/// # use legion::*;
+/// # let mut world = World::default();
+/// let (tx, rx) = std::sync::mpsc::channel::<legion::world::Event>();
+/// world.subscribe(move |event| tx.send(event).is_ok(), any());
+/// ```
+impl<F> EventSender for F
+where
+    F: Fn(Event) -> bool + Send + Sync,
+{
+    fn send(&self, event: Event) -> bool {
+        self(event)
+    }
+}
+
+/// Allows a sender to be shared, e.g. between several subscriptions.
+impl<T: EventSender + ?Sized> EventSender for Arc<T> {
+    fn send(&self, event: Event) -> bool {
+        (**self).send(event)
+    }
+}
+
+/// Collects all events into a vector. Wrap in an [`Arc`] to keep a handle for reading them.
+impl EventSender for Mutex<Vec<Event>> {
+    fn send(&self, event: Event) -> bool {
+        self.lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(event);
+        true
+    }
+}
+
+impl EventSender for std::sync::mpsc::Sender<Event> {
+    fn send(&self, event: Event) -> bool {
+        std::sync::mpsc::Sender::send(self, event).is_ok()
+    }
+}
+
+/// Events are dropped if the channel is full, but the subscription stays alive.
+impl EventSender for std::sync::mpsc::SyncSender<Event> {
     fn send(&self, event: Event) -> bool {
         !matches!(
             self.try_send(event),
-            Err(crossbeam_channel::TrySendError::Disconnected(_))
+            Err(std::sync::mpsc::TrySendError::Disconnected(_))
         )
     }
 }

@@ -269,11 +269,77 @@ fn mutate_remove_component() {
 }
 
 #[test]
-#[cfg(feature = "crossbeam-events")]
 fn delete_entities_on_drop() {
+    let (tx, rx) = std::sync::mpsc::channel::<legion::world::Event>();
+    delete_entities_on_drop_impl(tx, rx);
+}
+
+#[test]
+fn sync_sender_survives_full_channel() {
+    let mut world = World::default();
+    let (tx, rx) = std::sync::mpsc::sync_channel::<legion::world::Event>(1);
+    world.subscribe(tx, any());
+
+    // More events than the channel can hold: extras are dropped without panicking.
+    world.extend(vec![(Pos(1., 2., 3.),), (Pos(4., 5., 6.),)]);
+    std::mem::drop(world);
+
+    assert!(rx.try_iter().count() >= 1);
+}
+
+#[test]
+fn closure_and_collector_subscribers() {
+    use std::sync::{Arc, Mutex};
+
     let mut world = World::default();
 
-    let (tx, rx) = crossbeam_channel::unbounded::<legion::world::Event>();
+    let collected = Arc::new(Mutex::new(Vec::<legion::world::Event>::new()));
+    world.subscribe(Arc::clone(&collected), any());
+
+    let (tx, rx) = std::sync::mpsc::channel::<legion::world::Event>();
+    world.subscribe(move |event| tx.send(event).is_ok(), any());
+
+    world.push((Pos(1., 2., 3.),));
+
+    let from_collector = collected.lock().unwrap().len();
+    assert!(from_collector >= 1);
+    assert_eq!(from_collector, rx.try_iter().count());
+}
+
+#[test]
+fn closure_subscriber_dropped_when_dead() {
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+
+    let mut world = World::default();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let calls2 = Arc::clone(&calls);
+    world.subscribe(
+        move |_| {
+            calls2.fetch_add(1, Ordering::SeqCst);
+            false
+        },
+        any(),
+    );
+
+    world.push((Pos(1., 2., 3.),));
+    let after_first = calls.load(Ordering::SeqCst);
+    assert!(after_first >= 1);
+
+    // Returning `false` unsubscribes from that archetype, so further events there are not sent.
+    world.push((Pos(1., 2., 3.),));
+    world.push((Pos(1., 2., 3.),));
+    assert_eq!(calls.load(Ordering::SeqCst), after_first);
+}
+
+fn delete_entities_on_drop_impl<S, R>(tx: S, rx: R)
+where
+    S: legion::world::EventSender + 'static,
+    R: IntoIterator<Item = legion::world::Event>,
+{
+    let mut world = World::default();
 
     let components = vec![(Pos(1., 2., 3.), Rot(0.1, 0.2, 0.3))];
 

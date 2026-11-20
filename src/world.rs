@@ -114,14 +114,28 @@
 //! to an [`EventSender`] by subscribing to the world. A layout filter specifies which archetypes the
 //! subscriber is interested in.
 //!
-//! ```ignore
+//! ```
 //! # use legion::*;
 //! # let mut world = World::default();
 //! # struct Position;
 //! // subscribe to events involving entities with a `Position` with a
-//! // crossbeam channel.
-//! let (tx, rx) = crossbeam_channel::unbounded::<legion::world::Event>();
+//! // standard library channel.
+//! let (tx, rx) = std::sync::mpsc::channel::<legion::world::Event>();
 //! world.subscribe(tx, component::<Position>());
+//! ```
+//!
+//! `std::sync::mpsc::Sender` and `SyncSender` are supported out of the box, as are
+//! `Arc<impl EventSender>`, `Mutex<Vec<Event>>` (which collects events), and any closure of type
+//! `Fn(Event) -> bool + Send + Sync`. The closure form can adapt any other channel library:
+//! return `false` once the receiving side is gone.
+//!
+//! ```
+//! # use legion::*;
+//! # let mut world = World::default();
+//! # struct Position;
+//! # let (tx, rx) = std::sync::mpsc::channel::<legion::world::Event>();
+//! // Adapt any channel by wrapping it in a closure.
+//! world.subscribe(move |event| tx.send(event).is_ok(), component::<Position>());
 //! ```
 //!
 //! # World splitting

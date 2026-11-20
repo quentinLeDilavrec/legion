@@ -55,11 +55,11 @@ clone_on_ref_ptr = "warn"
 workspace = true
 
 [features]
-default = ["parallel", "serialize", "crossbeam-events", "codegen"]
+default = ["parallel", "serialize", "codegen"]
 parallel = ["rayon"]
 extended-tuple-impls = []
 serialize = ["serde", "erased-serde", "uuid/serde", "scoped-tls-hkt"]
-crossbeam-events = ["crossbeam-channel"]
+
 codegen = ["legion_codegen"]
 wasm-bindgen = ["uuid/js"]
 
@@ -77,7 +77,7 @@ rayon = { version = "1.12", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 scoped-tls-hkt = { version = "0.1", optional = true }
 erased-serde = { version = "0.4", optional = true }
-crossbeam-channel = { version = "0.5", optional = true }
+
 atomic_refcell = "0.1.14"
 
 [dev-dependencies]
