@@ -275,8 +275,8 @@ impl<T: PartialEq + Debug> Debug for Permissions<T> {
         write!(
             f,
             "Permissions {{ reads: [{}], writes: [{}] }}",
-            list::<T>(&self.reads()),
-            list::<T>(&self.writes())
+            list::<T>(self.reads()),
+            list::<T>(self.writes())
         )
     }
 }
@@ -294,8 +294,8 @@ impl<T: PartialEq + Display> Display for Permissions<T> {
         write!(
             f,
             "reads: [{}], writes: [{}]",
-            list::<T>(&self.reads()),
-            list::<T>(&self.writes())
+            list::<T>(self.reads()),
+            list::<T>(self.writes())
         )
     }
 }

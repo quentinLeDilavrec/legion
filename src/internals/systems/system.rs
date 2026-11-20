@@ -143,15 +143,15 @@ where
 
     fn reads(&self) -> (&[ResourceTypeId], &[ComponentTypeId]) {
         (
-            &self.access.resources.reads_only(),
-            &self.access.components.reads_only(),
+            self.access.resources.reads_only(),
+            self.access.components.reads_only(),
         )
     }
 
     fn writes(&self) -> (&[ResourceTypeId], &[ComponentTypeId]) {
         (
-            &self.access.resources.writes(),
-            &self.access.components.writes(),
+            self.access.resources.writes(),
+            self.access.components.writes(),
         )
     }
 

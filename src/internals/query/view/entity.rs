@@ -106,7 +106,7 @@ pub struct EntityFetch<'a> {
 unsafe impl<'a> ReadOnlyFetch for EntityFetch<'a> {
     #[inline]
     fn get_components(&self) -> Self::Data {
-        &self.entities
+        self.entities
     }
 }
 

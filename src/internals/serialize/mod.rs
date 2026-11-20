@@ -484,7 +484,7 @@ mod test {
         registry.register::<EntityRef>("entity_ref".to_string());
 
         let json =
-            serde_json::to_value(&world.as_serializable(any(), &registry, &entity_serializer))
+            serde_json::to_value(world.as_serializable(any(), &registry, &entity_serializer))
                 .unwrap();
         println!("{:#}", json);
 
@@ -599,7 +599,7 @@ mod test {
         registry.register::<EntityRef>("entity_ref".to_string());
 
         let json =
-            serde_json::to_value(&world1.as_serializable(any(), &registry, &entity_serializer))
+            serde_json::to_value(world1.as_serializable(any(), &registry, &entity_serializer))
                 .unwrap();
         println!("{:#}", json);
 

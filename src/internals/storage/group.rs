@@ -115,8 +115,7 @@ impl Group {
         arch_index: ArchetypeIndex,
         archetype: &Archetype,
     ) -> Option<usize> {
-        if let Some(SubGroup(subgroup_index)) = self.matches(&archetype.layout().component_types())
-        {
+        if let Some(SubGroup(subgroup_index)) = self.matches(archetype.layout().component_types()) {
             let (_, group_end) = &mut self.components[subgroup_index];
             let index = *group_end;
             self.archetypes.insert(index, arch_index);

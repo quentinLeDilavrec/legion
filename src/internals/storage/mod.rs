@@ -196,7 +196,7 @@ impl<'a, T: Component> Deref for ComponentSlice<'a, T> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
-        &self.components
+        self.components
     }
 }
 
@@ -234,7 +234,7 @@ impl<'a, T: Component> Deref for ComponentSliceMut<'a, T> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
-        &self.components
+        self.components
     }
 }
 

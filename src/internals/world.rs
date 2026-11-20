@@ -834,7 +834,7 @@ impl World {
         entity_serializer: &'a E,
     ) -> crate::internals::serialize::ser::SerializableWorld<'a, F, W, E> {
         crate::internals::serialize::ser::SerializableWorld::new(
-            &self,
+            self,
             filter,
             world_serializer,
             entity_serializer,

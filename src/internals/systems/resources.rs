@@ -129,7 +129,7 @@ impl<'a, T: Resource> ResourceSet<'a> for Read<T> {
     unsafe fn fetch_unchecked(resources: &'a UnsafeResources) -> Self::Result {
         let type_id = &ResourceTypeId::of::<T>();
         resources
-            .get(&type_id)
+            .get(type_id)
             .map(|x| x.get::<T>())
             .unwrap_or_else(|| panic_nonexistent_resource(type_id))
     }
@@ -141,7 +141,7 @@ impl<'a, T: Resource> ResourceSet<'a> for Write<T> {
     unsafe fn fetch_unchecked(resources: &'a UnsafeResources) -> Self::Result {
         let type_id = &ResourceTypeId::of::<T>();
         resources
-            .get(&type_id)
+            .get(type_id)
             .map(|x| x.get_mut::<T>())
             .unwrap_or_else(|| panic_nonexistent_resource(type_id))
     }
@@ -332,7 +332,7 @@ impl Resources {
         // this type is !Send and !Sync, and so can only be accessed from the thread which
         // owns the resources collection
         let type_id = &ResourceTypeId::of::<T>();
-        self.internal.get(&type_id).map(|x| x.get::<T>())
+        self.internal.get(type_id).map(|x| x.get::<T>())
     }
 
     /// Retrieve a mutable reference to  `T` from the store if it exists. Otherwise, return `None`.
@@ -341,7 +341,7 @@ impl Resources {
         // this type is !Send and !Sync, and so can only be accessed from the thread which
         // owns the resources collection
         let type_id = &ResourceTypeId::of::<T>();
-        self.internal.get(&type_id).map(|x| x.get_mut::<T>())
+        self.internal.get(type_id).map(|x| x.get_mut::<T>())
     }
 
     /// Attempts to retrieve an immutable reference to `T` from the store. If it does not exist,
@@ -431,13 +431,13 @@ impl<'a> SyncResources<'a> {
     /// Panics if the resource is already borrowed mutably.
     pub fn get<T: Resource + Sync>(&self) -> Option<AtomicRef<'_, T>> {
         let type_id = &ResourceTypeId::of::<T>();
-        self.internal.get(&type_id).map(|x| x.get::<T>())
+        self.internal.get(type_id).map(|x| x.get::<T>())
     }
 
     /// Retrieve a mutable reference to  `T` from the store if it exists. Otherwise, return `None`.
     pub fn get_mut<T: Resource + Send>(&self) -> Option<AtomicRefMut<'_, T>> {
         let type_id = &ResourceTypeId::of::<T>();
-        self.internal.get(&type_id).map(|x| x.get_mut::<T>())
+        self.internal.get(type_id).map(|x| x.get_mut::<T>())
     }
 }
 

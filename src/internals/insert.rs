@@ -43,7 +43,7 @@ impl<'a> ArchetypeWriter<'a> {
 
     /// Returns the archetype being written to.
     pub fn archetype(&self) -> &Archetype {
-        &self.archetype
+        self.archetype
     }
 
     fn mark_claimed(&mut self, type_id: ComponentTypeId) {

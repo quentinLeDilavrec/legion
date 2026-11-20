@@ -782,7 +782,7 @@ impl<'a, F: Fetch> ChunkView<'a, F> {
 
     /// Returns the archetype that all entities in the chunk belong to.
     pub fn archetype(&self) -> &Archetype {
-        &self.archetype
+        self.archetype
     }
 
     /// Returns a slice of components.
