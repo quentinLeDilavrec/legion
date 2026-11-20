@@ -49,7 +49,7 @@ fn get_component() {
 fn get_component_wrong_type() {
     let mut world = World::default();
 
-    let entity = *world.extend(vec![(0f64,)]).get(0).unwrap();
+    let entity = *world.extend(vec![(0f64,)]).first().unwrap();
 
     assert!(world
         .entry_ref(entity)
@@ -73,12 +73,12 @@ fn remove() {
     }
 
     for e in entities.iter() {
-        assert_eq!(true, world.contains(*e));
+        assert!(world.contains(*e));
     }
 
     for e in entities.iter() {
         world.remove(*e);
-        assert_eq!(false, world.contains(*e));
+        assert!(!world.contains(*e));
     }
 }
 
@@ -98,7 +98,7 @@ fn delete_all() {
 
     // Check that the entity allocator knows about the entities
     for e in entities.iter() {
-        assert_eq!(true, world.contains(*e));
+        assert!(world.contains(*e));
     }
 
     // Check that the entities are in storage
@@ -109,7 +109,7 @@ fn delete_all() {
 
     // Check that the entity allocator no longer knows about the entities
     for e in entities.iter() {
-        assert_eq!(false, world.contains(*e));
+        assert!(!world.contains(*e));
     }
 
     // Check that the entities are removed from storage
@@ -133,10 +133,10 @@ fn delete_last() {
 
     let last = *entities.last().unwrap();
     world.remove(last);
-    assert_eq!(false, world.contains(last));
+    assert!(!world.contains(last));
 
     for (i, e) in entities.iter().take(entities.len() - 1).enumerate() {
-        assert_eq!(true, world.contains(*e));
+        assert!(world.contains(*e));
         match world.entry_ref(*e).unwrap().get_component::<Pos>() {
             Ok(x) => assert_eq!(components.get(i).map(|(x, _)| x), Some(x)),
             Err(_) => assert_eq!(components.get(i).map(|(x, _)| x), None),
@@ -165,10 +165,10 @@ fn delete_first() {
     let first = *entities.first().unwrap();
 
     world.remove(first);
-    assert_eq!(false, world.contains(first));
+    assert!(!world.contains(first));
 
     for (i, e) in entities.iter().skip(1).enumerate() {
-        assert_eq!(true, world.contains(*e));
+        assert!(world.contains(*e));
         match world.entry_ref(*e).unwrap().get_component::<Pos>() {
             Ok(x) => assert_eq!(components.get(i + 1).map(|(x, _)| x), Some(x)),
             Err(_) => assert_eq!(components.get(i + 1).map(|(x, _)| x), None),
