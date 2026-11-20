@@ -463,9 +463,7 @@ impl<'a> Entry<'a> {
 
         let target_arch = {
             let mut source = DynamicArchetype {
-                base: self.world.archetypes()[self.location.archetype()]
-                    .layout()
-                    .clone(),
+                base: Arc::clone(self.world.archetypes()[self.location.archetype()].layout()),
                 add: &[ComponentTypeId::of::<T>()],
                 add_constructors: &[|| Box::new(T::Storage::default())],
                 remove: &[],
@@ -482,7 +480,7 @@ impl<'a> Entry<'a> {
                 .components_mut()
                 .get_downcast_mut::<T>()
                 .unwrap()
-                .extend_memcopy(target_arch, &component, 1);
+                .extend_memcopy(target_arch, &raw const component, 1);
             std::mem::forget(component);
             self.location = EntityLocation::new(target_arch, idx);
         };
@@ -497,9 +495,7 @@ impl<'a> Entry<'a> {
 
         let target_arch = {
             let mut source = DynamicArchetype {
-                base: self.world.archetypes()[self.location.archetype()]
-                    .layout()
-                    .clone(),
+                base: Arc::clone(self.world.archetypes()[self.location.archetype()].layout()),
                 add: &[],
                 add_constructors: &[],
                 remove: &[ComponentTypeId::of::<T>()],

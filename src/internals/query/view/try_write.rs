@@ -177,12 +177,12 @@ impl<'a, T: Component> Fetch for Slice<'a, T> {
     #[inline]
     fn find<C: 'static>(&self) -> Option<&[C]> {
         if TypeId::of::<C>() == TypeId::of::<T>() {
-            // safety: C and T are the same type
             match self {
                 Self::Occupied { components, .. } => {
+                    // safety: C and T are the same type
                     Some(unsafe {
                         std::slice::from_raw_parts(
-                            components.as_ptr() as *const C,
+                            components.as_ptr().cast::<C>(),
                             components.len(),
                         )
                     })
@@ -197,12 +197,12 @@ impl<'a, T: Component> Fetch for Slice<'a, T> {
     #[inline]
     fn find_mut<C: 'static>(&mut self) -> Option<&mut [C]> {
         if TypeId::of::<C>() == TypeId::of::<T>() {
-            // safety: C and T are the same type
             match self {
                 Self::Occupied { components, .. } => {
+                    // safety: C and T are the same type
                     Some(unsafe {
                         std::slice::from_raw_parts_mut(
-                            components.as_mut_ptr() as *mut C,
+                            components.as_mut_ptr().cast::<C>(),
                             components.len(),
                         )
                     })

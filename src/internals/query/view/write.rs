@@ -189,7 +189,7 @@ impl<'a, T: Component> Fetch for WriteFetch<'a, T> {
             // safety: C and T are the same type
             Some(unsafe {
                 std::slice::from_raw_parts(
-                    self.components.as_ptr() as *const C,
+                    self.components.as_ptr().cast::<C>(),
                     self.components.len(),
                 )
             })
@@ -204,7 +204,7 @@ impl<'a, T: Component> Fetch for WriteFetch<'a, T> {
             // safety: C and T are the same type
             Some(unsafe {
                 std::slice::from_raw_parts_mut(
-                    self.components.as_mut_ptr() as *mut C,
+                    self.components.as_mut_ptr().cast::<C>(),
                     self.components.len(),
                 )
             })

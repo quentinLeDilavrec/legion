@@ -33,6 +33,24 @@ broken_intra_doc_links = "warn"
 private_intra_doc_links = "warn"
 invalid_rust_codeblocks = "warn"
 
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+# Leftover debugging / unfinished code.
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+# Unsafe-code hygiene.
+missing_safety_doc = "warn"
+unnecessary_safety_comment = "warn"
+unnecessary_safety_doc = "warn"
+borrow_as_ptr = "warn"
+ref_as_ptr = "warn"
+ptr_as_ptr = "warn"
+cast_ptr_alignment = "warn"
+transmute_ptr_to_ptr = "warn"
+# Avoid accidental refcount-bump ambiguity.
+clone_on_ref_ptr = "warn"
+
 [lints]
 workspace = true
 

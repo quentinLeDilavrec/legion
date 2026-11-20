@@ -328,7 +328,7 @@ impl Resources {
     /// # Panics
     /// Panics if the resource is already borrowed mutably.
     pub fn get<T: Resource>(&self) -> Option<AtomicRef<'_, T>> {
-        // safety:
+        // WARN:
         // this type is !Send and !Sync, and so can only be accessed from the thread which
         // owns the resources collection
         let type_id = &ResourceTypeId::of::<T>();
@@ -337,7 +337,7 @@ impl Resources {
 
     /// Retrieve a mutable reference to  `T` from the store if it exists. Otherwise, return `None`.
     pub fn get_mut<T: Resource>(&self) -> Option<AtomicRefMut<'_, T>> {
-        // safety:
+        // WARN:
         // this type is !Send and !Sync, and so can only be accessed from the thread which
         // owns the resources collection
         let type_id = &ResourceTypeId::of::<T>();
@@ -347,7 +347,7 @@ impl Resources {
     /// Attempts to retrieve an immutable reference to `T` from the store. If it does not exist,
     /// the closure `f` is called to construct the object and it is then inserted into the store.
     pub fn get_or_insert_with<T: Resource, F: FnOnce() -> T>(&mut self, f: F) -> AtomicRef<'_, T> {
-        // safety:
+        // WARN:
         // this type is !Send and !Sync, and so can only be accessed from the thread which
         // owns the resources collection
         let type_id = ResourceTypeId::of::<T>();
@@ -365,7 +365,7 @@ impl Resources {
         &mut self,
         f: F,
     ) -> AtomicRefMut<'_, T> {
-        // safety:
+        // WARN:
         // this type is !Send and !Sync, and so can only be accessed from the thread which
         // owns the resources collection
         let type_id = ResourceTypeId::of::<T>();

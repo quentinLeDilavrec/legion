@@ -419,7 +419,7 @@ pub mod de {
         type Filter = Rc<EntityLayout>;
 
         fn filter(&self) -> Self::Filter {
-            self.layout.clone()
+            Rc::clone(&self.layout)
         }
         fn layout(&mut self) -> EntityLayout {
             (*self.layout).clone()
@@ -487,7 +487,7 @@ pub mod de {
         type Filter = Rc<EntityLayout>;
 
         fn filter(&self) -> Self::Filter {
-            self.layout.clone()
+            Rc::clone(&self.layout)
         }
         fn layout(&mut self) -> EntityLayout {
             (*self.layout).clone()

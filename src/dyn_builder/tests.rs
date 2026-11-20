@@ -50,7 +50,7 @@ fn test_cloning() {
     components.add(comp4.clone());
 
     let shared = Arc::new(7u32);
-    components.add(shared.clone());
+    components.add(Arc::clone(&shared));
     assert_eq!(Arc::strong_count(&shared), 2);
 
     let comp5: u64 = 0;
@@ -156,7 +156,7 @@ fn test_mut_or_default_rc() {
     {
         let mut components = EntityBuilder::default();
         let tracked = components.mut_or_default::<Tracked>();
-        tracked.0 = rc.clone();
+        tracked.0 = Rc::clone(&rc);
         assert_eq!(Rc::strong_count(&rc), 2);
         let tracked = components.mut_or_default::<Tracked>();
         assert!(Rc::ptr_eq(&tracked.0, &rc));

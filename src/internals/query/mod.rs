@@ -268,21 +268,22 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         // value of this function references only data from the world and View::fetch can't
         // put the reference away somewhere invalid (because the param is still bound to 'world not
         // 'static), so the arch_slice on the stack won't stil be in use after it falls out of scope.
-
-        let arch_slice = [location.archetype()];
-        let arch_slice_ref: &[ArchetypeIndex] = &arch_slice;
-        let arch_slice_ref = unsafe {
-            std::mem::transmute::<&[ArchetypeIndex], &'world [ArchetypeIndex]>(arch_slice_ref)
-        };
-        let result = QueryResult::unordered(arch_slice_ref);
-        let mut fetch = if let Some(Some(fetch)) = unsafe {
-            <V::View as View<'world>>::fetch(accessor.components(), accessor.archetypes(), result)
-        }
-        .next()
-        {
-            fetch
-        } else {
-            return Err(EntityAccessError::EntityNotFound);
+        let mut fetch = unsafe {
+            let arch_slice = [location.archetype()];
+            let arch_slice_ref =
+                std::mem::transmute::<&[ArchetypeIndex], &'world [ArchetypeIndex]>(&arch_slice);
+            let result = QueryResult::unordered(arch_slice_ref);
+            if let Some(Some(fetch)) = <V::View as View<'world>>::fetch(
+                accessor.components(),
+                accessor.archetypes(),
+                result,
+            )
+            .next()
+            {
+                fetch
+            } else {
+                return Err(EntityAccessError::EntityNotFound);
+            }
         };
 
         // if our filter has conditions beyond that of the view, then we need to evaluate the query

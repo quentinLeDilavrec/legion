@@ -190,7 +190,7 @@ mod tests {
         let a_count = Arc::new(AtomicUsize::new(0));
         let b_count = Arc::new(AtomicUsize::new(0));
         let mut schedule = Schedule::builder()
-            .add_system(basic_system(a_count.clone(), b_count.clone()))
+            .add_system(basic_system(Arc::clone(&a_count), Arc::clone(&b_count)))
             .build();
 
         let mut world = World::default();

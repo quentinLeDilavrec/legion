@@ -49,7 +49,7 @@ impl ComponentMeta {
             size: std::mem::size_of::<T>(),
             align: std::mem::align_of::<T>(),
             drop_fn: if std::mem::needs_drop::<T>() {
-                Some(|ptr| unsafe { std::ptr::drop_in_place(ptr as *mut T) })
+                Some(|ptr| unsafe { std::ptr::drop_in_place(ptr.cast::<T>()) })
             } else {
                 None
             },

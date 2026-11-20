@@ -195,7 +195,7 @@ impl<'a, T: Component> Fetch for ReadFetch<'a, T> {
             // safety: C and T are the same type
             Some(unsafe {
                 std::slice::from_raw_parts(
-                    self.components.as_ptr() as *const C,
+                    self.components.as_ptr().cast::<C>(),
                     self.components.len(),
                 )
             })

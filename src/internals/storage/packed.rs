@@ -40,7 +40,7 @@ impl<T> RawAlloc<T> {
             let layout =
                 Layout::from_size_align(size_of::<T>() * min_capacity, align_of::<T>()).unwrap();
             Self {
-                ptr: NonNull::new(unsafe { std::alloc::alloc(layout) as *mut _ }).unwrap(),
+                ptr: NonNull::new(unsafe { std::alloc::alloc(layout).cast() }).unwrap(),
                 cap: min_capacity,
             }
         }
@@ -58,13 +58,14 @@ impl<T> RawAlloc<T> {
                 let layout =
                     Layout::from_size_align(size_of::<T>() * new_capacity, align_of::<T>())
                         .unwrap();
-                std::alloc::alloc(layout) as *mut T
+                std::alloc::alloc(layout).cast::<T>()
             } else {
                 std::alloc::realloc(
-                    self.ptr.as_ptr() as *mut u8,
+                    self.ptr.as_ptr().cast::<u8>(),
                     self.layout(),
                     size_of::<T>() * new_capacity,
-                ) as *mut T
+                )
+                .cast::<T>()
             };
             if let Some(new_ptr) = NonNull::new(dst_ptr) {
                 self.ptr = new_ptr;
@@ -85,7 +86,7 @@ impl<T> Drop for RawAlloc<T> {
             unsafe {
                 let layout =
                     Layout::from_size_align_unchecked(size_of::<T>() * self.cap, align_of::<T>());
-                std::alloc::dealloc(self.ptr.as_ptr() as *mut _, layout);
+                std::alloc::dealloc(self.ptr.as_ptr().cast(), layout);
             }
         }
     }
@@ -466,7 +467,7 @@ impl<T: Component> UnknownComponentStorage for PackedStorage<T> {
                 .zip(self.slices.iter_mut())
                 .filter(|(allocation, _)| allocation.should_pack(epoch_threshold))
             {
-                alloc.pack(packed.clone(), cursor);
+                alloc.pack(Rc::clone(&packed), cursor);
                 *slice = alloc.as_raw_slice();
                 cursor += slice.1;
             }
@@ -499,7 +500,7 @@ impl<T: Component> UnknownComponentStorage for PackedStorage<T> {
         let slice_index = *self.index.get(archetype as usize)?;
         let (ptr, len) = self.slices.get(slice_index)?;
         unsafe { *self.versions.get_unchecked(slice_index).get() = next_component_version() };
-        Some((ptr.as_ptr() as *mut u8, *len))
+        Some((ptr.as_ptr().cast::<u8>(), *len))
     }
 
     unsafe fn extend_memcopy_raw(
@@ -510,7 +511,7 @@ impl<T: Component> UnknownComponentStorage for PackedStorage<T> {
     ) {
         let slice_index = self.index[archetype as usize];
         let allocation = &mut self.allocations[slice_index];
-        unsafe { allocation.extend_memcopy(self.epoch, ptr as *const T, count) };
+        unsafe { allocation.extend_memcopy(self.epoch, ptr.cast::<T>(), count) };
         self.slices[slice_index] = allocation.as_raw_slice();
         self.entity_len += count;
         unsafe { *self.versions[slice_index].get() = next_component_version() };
@@ -545,7 +546,7 @@ impl<'a, T: Component> ComponentStorage<'a, T> for PackedStorage<T> {
     type IterMut = ComponentIterMut<'a, T>;
 
     unsafe fn extend_memcopy(&mut self, archetype: ArchetypeIndex, ptr: *const T, count: usize) {
-        unsafe { self.extend_memcopy_raw(archetype, ptr as *const u8, count) };
+        unsafe { self.extend_memcopy_raw(archetype, ptr.cast::<u8>(), count) };
     }
 
     fn get(&'a self, ArchetypeIndex(archetype): ArchetypeIndex) -> Option<ComponentSlice<'a, T>> {

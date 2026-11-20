@@ -641,15 +641,15 @@ mod tests {
 
         let order = Arc::new(Mutex::new(Vec::new()));
 
-        let order_clone = order.clone();
+        let order_clone = Arc::clone(&order);
         let system_one = SystemBuilder::new("one")
             .write_resource::<Resource>()
             .build(move |_, _, _, _| order_clone.lock().unwrap().push(1usize));
-        let order_clone = order.clone();
+        let order_clone = Arc::clone(&order);
         let system_two = SystemBuilder::new("two")
             .write_resource::<Resource>()
             .build(move |_, _, _, _| order_clone.lock().unwrap().push(2usize));
-        let order_clone = order.clone();
+        let order_clone = Arc::clone(&order);
         let system_three = SystemBuilder::new("three")
             .write_resource::<Resource>()
             .build(move |_, _, _, _| order_clone.lock().unwrap().push(3usize));
@@ -710,7 +710,7 @@ mod tests {
         let entity = Arc::new(Mutex::new(None));
 
         {
-            let entity = entity.clone();
+            let entity = Arc::clone(&entity);
 
             let system_one = SystemBuilder::new("one").build(move |cmd, _, _, _| {
                 let mut entity = entity.lock().unwrap();

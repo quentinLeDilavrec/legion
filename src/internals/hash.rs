@@ -19,7 +19,7 @@ impl Hasher for ComponentTypeIdHasher {
 
     fn write(&mut self, _bytes: &[u8]) {
         // This should not be called, only write_u64.
-        unimplemented!()
+        unreachable!()
     }
 }
 
@@ -44,7 +44,7 @@ impl Hasher for U64Hasher {
 
     fn write(&mut self, _bytes: &[u8]) {
         // This should not be called, only write_u64.
-        unimplemented!()
+        unreachable!()
     }
 }
 

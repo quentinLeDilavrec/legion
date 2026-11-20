@@ -119,13 +119,14 @@ where
              archetype,
              serialize: &mut dyn FnMut(&dyn erased_serde::Serialize)| unsafe {
                 let (ptr, len) = storage.get_raw(archetype).unwrap();
-                let slice = std::slice::from_raw_parts(ptr as *const C, len);
+                let slice = std::slice::from_raw_parts(ptr.cast::<C>(), len);
                 (serialize)(&slice);
             };
-        let serialize_fn = |ptr, serialize: &mut dyn FnMut(&dyn erased_serde::Serialize)| {
-            let component = unsafe { &*(ptr as *const C) };
-            (serialize)(component);
-        };
+        let serialize_fn =
+            |ptr: *const u8, serialize: &mut dyn FnMut(&dyn erased_serde::Serialize)| {
+                let component = unsafe { &*ptr.cast::<C>() };
+                (serialize)(component);
+            };
         let deserialize_slice_fn =
             |storage: UnknownComponentWriter, deserializer: &mut dyn erased_serde::Deserializer| {
                 // todo avoid temp vec
