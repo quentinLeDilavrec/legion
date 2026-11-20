@@ -69,7 +69,7 @@ impl ComponentMeta {
     /// Drops the component.
     ///
     /// # Safety
-    /// The caller must ensure that the memory location refered to by `value` is
+    /// The caller must ensure that the memory location referred to by `value` is
     /// not accessed again before it is re-initialized.
     pub unsafe fn drop(&self, value: *mut u8) {
         if let Some(drop_fn) = self.drop_fn {
@@ -86,7 +86,7 @@ pub struct ComponentIndex(pub(crate) usize);
 /// by the packing heuristics as a measure of age.
 pub type Epoch = u64;
 
-/// The version of a component slice. Versions are incremented when the sliace is
+/// The version of a component slice. Versions are incremented when the slice is
 /// accessed mutably.
 pub type Version = u64;
 

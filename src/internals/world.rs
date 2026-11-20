@@ -928,7 +928,7 @@ impl<'a> StorageAccessor<'a> {
         self.id
     }
 
-    /// Returns `true` if the given archetype is accessable from this storage accessor.
+    /// Returns `true` if the given archetype is accessible from this storage accessor.
     pub fn can_access_archetype(&self, ArchetypeIndex(archetype): ArchetypeIndex) -> bool {
         match self.allowed_archetypes {
             None => true,

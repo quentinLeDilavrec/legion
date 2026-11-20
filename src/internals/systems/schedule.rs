@@ -317,7 +317,7 @@ impl Executor {
     pub fn run_systems(&mut self, world: &mut World, resources: &UnsafeResources) {
         match self.systems.len() {
             1 => {
-                // safety: we have exlusive access to all systems, world and resources here
+                // safety: we have exclusive access to all systems, world and resources here
                 unsafe {
                     let system = self.systems[0].get_mut();
                     system.prepare(world);

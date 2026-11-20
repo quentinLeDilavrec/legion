@@ -58,7 +58,7 @@ type DeserializeSingleBoxedFn =
 pub enum UnknownType {
     /// Ignore the component.
     Ignore,
-    /// Abort (de)serialization wwith an error.
+    /// Abort (de)serialization with an error.
     Error,
 }
 

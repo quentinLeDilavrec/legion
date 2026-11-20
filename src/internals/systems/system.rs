@@ -226,7 +226,7 @@ where
 // This builder uses a Cons/Hlist implemented in cons.rs to generated the static query types
 // for this system. Access types are instead stored and abstracted in the top level vec here
 // so the underlying ResourceSet type functions from the queries don't need to allocate.
-// Otherwise, this leads to excessive alloaction for every call to reads/writes
+// Otherwise, this leads to excessive allocation for every call to reads/writes
 
 /// A low level builder for constructing systems.
 /// ```rust
@@ -331,7 +331,7 @@ where
     /// Flag this resource type as being read by this system.
     ///
     /// This will inform the dispatcher to not allow any writes access to this resource while
-    /// this system is running. Parralel reads still occur during execution.
+    /// this system is running. Parallel reads still occur during execution.
     pub fn read_resource<T>(mut self) -> SystemBuilder<Q, <R as ConsAppend<Read<T>>>::Output>
     where
         T: 'static + Resource,

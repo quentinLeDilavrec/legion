@@ -139,7 +139,7 @@ impl<V: IntoView, F: EntityFilter> Default for Query<V, F> {
 }
 
 impl<V: IntoView, F: EntityFilter> Query<V, F> {
-    /// Consructs a new Query
+    /// Constructs a new Query
     pub fn new() -> Self {
         V::View::validate();
 
@@ -267,7 +267,7 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         // there for more details. In this case, the situation is simpler; we know the return
         // value of this function references only data from the world and View::fetch can't
         // put the reference away somewhere invalid (because the param is still bound to 'world not
-        // 'static), so the arch_slice on the stack won't stil be in use after it falls out of scope.
+        // 'static), so the arch_slice on the stack won't still be in use after it falls out of scope.
         let mut fetch = unsafe {
             let arch_slice = [location.archetype()];
             let arch_slice_ref =
