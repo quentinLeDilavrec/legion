@@ -214,7 +214,7 @@ where
     }
 }
 
-impl<'a, L1, F1, L2, F2> std::ops::BitAnd<EntityFilterTuple<L2, F2>> for EntityFilterTuple<L1, F1>
+impl<L1, F1, L2, F2> std::ops::BitAnd<EntityFilterTuple<L2, F2>> for EntityFilterTuple<L1, F1>
 where
     L1: LayoutFilter + std::ops::BitAnd<L2>,
     L1::Output: LayoutFilter,
@@ -234,7 +234,7 @@ where
     }
 }
 
-impl<'a, L1, F1, L2, F2> std::ops::BitOr<EntityFilterTuple<L2, F2>> for EntityFilterTuple<L1, F1>
+impl<L1, F1, L2, F2> std::ops::BitOr<EntityFilterTuple<L2, F2>> for EntityFilterTuple<L1, F1>
 where
     L1: LayoutFilter + std::ops::BitOr<L2>,
     L1::Output: LayoutFilter,

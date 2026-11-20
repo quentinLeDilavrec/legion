@@ -55,7 +55,7 @@ impl<T: Component> std::ops::Not for TryComponentFilter<T> {
     }
 }
 
-impl<'a, T: Component, Rhs: ActiveFilter> std::ops::BitAnd<Rhs> for TryComponentFilter<T> {
+impl<T: Component, Rhs: ActiveFilter> std::ops::BitAnd<Rhs> for TryComponentFilter<T> {
     type Output = And<(Self, Rhs)>;
 
     #[inline]
@@ -66,7 +66,7 @@ impl<'a, T: Component, Rhs: ActiveFilter> std::ops::BitAnd<Rhs> for TryComponent
     }
 }
 
-impl<'a, T: Component> std::ops::BitAnd<Passthrough> for TryComponentFilter<T> {
+impl<T: Component> std::ops::BitAnd<Passthrough> for TryComponentFilter<T> {
     type Output = Self;
 
     #[inline]
@@ -75,7 +75,7 @@ impl<'a, T: Component> std::ops::BitAnd<Passthrough> for TryComponentFilter<T> {
     }
 }
 
-impl<'a, T: Component, Rhs: ActiveFilter> std::ops::BitOr<Rhs> for TryComponentFilter<T> {
+impl<T: Component, Rhs: ActiveFilter> std::ops::BitOr<Rhs> for TryComponentFilter<T> {
     type Output = Or<(Self, Rhs)>;
 
     #[inline]
@@ -86,7 +86,7 @@ impl<'a, T: Component, Rhs: ActiveFilter> std::ops::BitOr<Rhs> for TryComponentF
     }
 }
 
-impl<'a, T: Component> std::ops::BitOr<Passthrough> for TryComponentFilter<T> {
+impl<T: Component> std::ops::BitOr<Passthrough> for TryComponentFilter<T> {
     type Output = Self;
 
     #[inline]

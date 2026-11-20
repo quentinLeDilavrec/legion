@@ -86,7 +86,7 @@ mod test {
 
     #[test]
     fn create() {
-        let _ = SliceVec::<usize>::default();
+        drop(SliceVec::<usize>::default());
     }
 
     #[test]

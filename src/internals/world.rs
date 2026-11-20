@@ -1168,7 +1168,7 @@ mod test {
 
     #[test]
     fn create() {
-        let _ = World::default();
+        drop(World::default());
     }
 
     #[test]

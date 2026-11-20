@@ -43,7 +43,7 @@ impl<F: DynamicFilter> DynamicFilter for Not<F> {
     }
 }
 
-impl<'a, F, Rhs: ActiveFilter> std::ops::BitAnd<Rhs> for Not<F> {
+impl<F, Rhs: ActiveFilter> std::ops::BitAnd<Rhs> for Not<F> {
     type Output = And<(Self, Rhs)>;
 
     #[inline]
@@ -54,7 +54,7 @@ impl<'a, F, Rhs: ActiveFilter> std::ops::BitAnd<Rhs> for Not<F> {
     }
 }
 
-impl<'a, F> std::ops::BitAnd<Passthrough> for Not<F> {
+impl<F> std::ops::BitAnd<Passthrough> for Not<F> {
     type Output = Self;
 
     #[inline]
@@ -63,7 +63,7 @@ impl<'a, F> std::ops::BitAnd<Passthrough> for Not<F> {
     }
 }
 
-impl<'a, F, Rhs: ActiveFilter> std::ops::BitOr<Rhs> for Not<F> {
+impl<F, Rhs: ActiveFilter> std::ops::BitOr<Rhs> for Not<F> {
     type Output = Or<(Self, Rhs)>;
 
     #[inline]
@@ -74,7 +74,7 @@ impl<'a, F, Rhs: ActiveFilter> std::ops::BitOr<Rhs> for Not<F> {
     }
 }
 
-impl<'a, F> std::ops::BitOr<Passthrough> for Not<F> {
+impl<F> std::ops::BitOr<Passthrough> for Not<F> {
     type Output = Self;
 
     #[inline]

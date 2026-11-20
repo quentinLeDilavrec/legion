@@ -76,7 +76,7 @@ impl<T: Component> std::ops::Not for ComponentChangedFilter<T> {
     }
 }
 
-impl<'a, T: Component, Rhs: ActiveFilter> std::ops::BitAnd<Rhs> for ComponentChangedFilter<T> {
+impl<T: Component, Rhs: ActiveFilter> std::ops::BitAnd<Rhs> for ComponentChangedFilter<T> {
     type Output = And<(Self, Rhs)>;
 
     #[inline]
@@ -87,7 +87,10 @@ impl<'a, T: Component, Rhs: ActiveFilter> std::ops::BitAnd<Rhs> for ComponentCha
     }
 }
 
-impl<'a, T: Component> std::ops::BitAnd<Passthrough> for ComponentChangedFilter<T> {
+impl<T> std::ops::BitAnd<Passthrough> for ComponentChangedFilter<T>
+where
+    T: Component,
+{
     type Output = Self;
 
     #[inline]
@@ -96,7 +99,7 @@ impl<'a, T: Component> std::ops::BitAnd<Passthrough> for ComponentChangedFilter<
     }
 }
 
-impl<'a, T: Component, Rhs: ActiveFilter> std::ops::BitOr<Rhs> for ComponentChangedFilter<T> {
+impl<T: Component, Rhs: ActiveFilter> std::ops::BitOr<Rhs> for ComponentChangedFilter<T> {
     type Output = Or<(Self, Rhs)>;
 
     #[inline]
@@ -107,7 +110,7 @@ impl<'a, T: Component, Rhs: ActiveFilter> std::ops::BitOr<Rhs> for ComponentChan
     }
 }
 
-impl<'a, T: Component> std::ops::BitOr<Passthrough> for ComponentChangedFilter<T> {
+impl<T: Component> std::ops::BitOr<Passthrough> for ComponentChangedFilter<T> {
     type Output = Self;
 
     #[inline]

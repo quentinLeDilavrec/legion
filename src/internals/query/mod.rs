@@ -878,7 +878,7 @@ impl<'a, F: Fetch> rayon::iter::IntoParallelIterator for ChunkView<'a, F> {
 pub struct ChunkIter<'data, 'index, V, D>
 where
     V: View<'data>,
-    D: DynamicFilter + 'index,
+    D: DynamicFilter,
 {
     inner: V::Iter,
     indices: Iter<'index, ArchetypeIndex>,
@@ -928,7 +928,7 @@ pub mod par_iter {
     pub struct Iter<'world, 'query, V, D>
     where
         V: View<'world>,
-        D: DynamicFilter + 'query,
+        D: DynamicFilter,
     {
         inner: V::Iter,
         indices: std::slice::Iter<'query, ArchetypeIndex>,
@@ -967,7 +967,7 @@ pub mod par_iter {
     pub struct ParChunkIter<'a, V, D>
     where
         V: View<'a>,
-        D: DynamicFilter + 'a,
+        D: DynamicFilter,
     {
         world: StorageAccessor<'a>,
         result: QueryResult<'a>,

@@ -252,7 +252,7 @@ impl<T> Drop for SoaElement<T> {
     fn drop(&mut self) {
         unsafe {
             // reconstruct the original vector, but with length set to the remaining elements
-            let _ = Vec::from_raw_parts(self.ptr, self.len, self.capacity);
+            drop(Vec::from_raw_parts(self.ptr, self.len, self.capacity));
         }
     }
 }

@@ -629,12 +629,12 @@ mod test {
 
     #[test]
     fn create_storage() {
-        let _ = PackedStorage::<usize>::default();
+        drop(PackedStorage::<usize>::default());
     }
 
     #[test]
     fn create_zst_storage() {
-        let _ = PackedStorage::<()>::default();
+        drop(PackedStorage::<()>::default());
     }
 
     #[test]
