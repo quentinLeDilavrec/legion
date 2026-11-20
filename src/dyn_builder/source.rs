@@ -65,5 +65,8 @@ impl ComponentSource for EntityBuilder {
             let len = 1; // actually the len of slice, not the len of the component
             unsafe { target.extend_memcopy_raw(ptr, len) };
         }
+
+        // Ownership of the components now lies with the archetype; don't drop them again.
+        self.forget_components();
     }
 }

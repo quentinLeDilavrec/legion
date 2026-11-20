@@ -19,51 +19,66 @@ fn simple() {
     );
 }
 
+// Components must be moved into the world, never deep-cloned or dropped twice.
+// We check this by comparing heap addresses captured *before* the move
+// (never dereferencing a pointer to a moved-from value)
+// and by counting `Arc` owners.
 #[test]
 fn test_cloning() {
+    use std::sync::Arc;
+
     let mut world = crate::World::new(Default::default());
     let mut components = EntityBuilder::default();
-    let mut comp0: (Box<[u32]>,) = (vec![0, 0, 0, 0, 0, 1, 4100177920].into_boxed_slice(),); //0, 14, 43, 10, 876, 7, 1065, 35
-    let mut comp0_saved = comp0.clone();
-    let comp0_ptr = (&mut comp0) as *mut (Box<[u32]>,);
+
+    let comp0: (Box<[u32]>,) = (vec![0, 0, 0, 0, 0, 1, 4100177920].into_boxed_slice(),);
+    let comp0_saved = comp0.clone();
+    let comp0_addr = comp0.0.as_ptr() as usize;
     components.add(comp0);
-    unsafe { (*comp0_ptr).0[4] = 42 };
-    comp0_saved.0[4] = 42;
+
     let comp1: i32 = 0;
     components.add(comp1);
     let comp2: bool = true;
     components.add(comp2);
-    let mut comp3: Vec<u64> = vec![0, 1, 2, 3];
+
+    let comp3: Vec<u64> = vec![0, 1, 2, 3];
     let comp3_saved = comp3.clone();
-    let comp3_ptr = (&mut comp3) as *mut Vec<u64>;
+    let comp3_addr = comp3.as_ptr() as usize;
     components.add(comp3);
+
     let comp4: String = "ewgwgwsegwesf".into();
+    let comp4_addr = comp4.as_ptr() as usize;
     components.add(comp4.clone());
+
+    let shared = Arc::new(7u32);
+    components.add(shared.clone());
+    assert_eq!(Arc::strong_count(&shared), 2);
+
     let comp5: u64 = 0;
     components.add(comp5);
-    dbg!(unsafe { comp0_ptr.as_ref() });
-    let entity = world.extend(components)[0];
-    assert_eq!(
-        Some(&comp0_saved),
-        unsafe { comp0_ptr.as_ref() },
-        "slice should not have changed"
-    );
-    assert_eq!(
-        Some(&comp3_saved),
-        unsafe { comp3_ptr.as_ref() },
-        "vec should not have changed"
-    );
 
-    if let Some(entry) = world.entry(entity) {
-        unsafe { (*comp0_ptr).0[5] += 1 };
-        comp0_saved.0[5] += 1;
-        dbg!(unsafe { comp0_ptr.as_ref() });
-        assert_eq!(Ok(&comp0_saved), entry.get_component::<(Box<[u32]>,)>());
-        assert_eq!(Ok(&comp1), entry.get_component::<i32>());
-        assert_eq!(Ok(&comp2), entry.get_component::<bool>());
-        assert_eq!(Ok(&comp3_saved), entry.get_component::<Vec<u64>>());
-        assert_eq!(Ok(&comp4), entry.get_component::<String>());
-    }
+    let entity = world.extend(components)[0];
+    assert_eq!(Arc::strong_count(&shared), 2, "extend must move, not clone");
+
+    let entry = world.entry(entity).unwrap();
+    let got0 = entry.get_component::<(Box<[u32]>,)>().unwrap();
+    assert_eq!(got0, &comp0_saved);
+    assert_eq!(got0.0.as_ptr() as usize, comp0_addr, "slice should have been moved");
+    assert_eq!(Ok(&comp1), entry.get_component::<i32>());
+    assert_eq!(Ok(&comp2), entry.get_component::<bool>());
+    let got3 = entry.get_component::<Vec<u64>>().unwrap();
+    assert_eq!(got3, &comp3_saved);
+    assert_eq!(got3.as_ptr() as usize, comp3_addr, "vec should have been moved");
+    // `comp4` was cloned on purpose, so the world's copy must own a different buffer.
+    let got4 = entry.get_component::<String>().unwrap();
+    assert_eq!(got4, &comp4);
+    assert_ne!(got4.as_ptr() as usize, comp4_addr);
+    assert!(Arc::ptr_eq(
+        entry.get_component::<Arc<u32>>().unwrap(),
+        &shared
+    ));
+
+    drop(world);
+    assert_eq!(Arc::strong_count(&shared), 1, "world must drop it exactly once");
 }
 
 #[test]
@@ -97,6 +112,50 @@ fn test_mut_or_default() {
     let mut components = EntityBuilder::default();
     *components.mut_or_default::<i32>() += 1;
     assert_eq!(*components.mut_or_default::<i32>(), 1);
+}
+
+#[test]
+fn test_mut_or_default_drop_type() {
+    // Heap-owning component: a stray extra `T::default()` copy would be double-freed.
+    let mut components = EntityBuilder::default();
+    components.mut_or_default::<Vec<u8>>().push(1);
+    components.mut_or_default::<Vec<u8>>().push(2);
+    assert_eq!(components.get_mut::<Vec<u8>>(), Some(&mut vec![1, 2]));
+
+    let mut world = crate::World::new(Default::default());
+    let entity = world.extend(components)[0];
+    assert_eq!(
+        Ok(&vec![1u8, 2]),
+        world.entry(entity).unwrap().get_component::<Vec<u8>>()
+    );
+}
+
+#[test]
+fn test_mut_or_default_rc() {
+    use std::rc::Rc;
+
+    #[derive(Default)]
+    struct Tracked(Rc<()>);
+    // Needed because `Component` requires `Send + Sync`; only used on this thread.
+    unsafe impl Send for Tracked {}
+    unsafe impl Sync for Tracked {}
+
+    let rc = Rc::new(());
+    {
+        let mut components = EntityBuilder::default();
+        let tracked = components.mut_or_default::<Tracked>();
+        tracked.0 = rc.clone();
+        assert_eq!(Rc::strong_count(&rc), 2);
+        let tracked = components.mut_or_default::<Tracked>();
+        assert!(Rc::ptr_eq(&tracked.0, &rc));
+        assert_eq!(Rc::strong_count(&rc), 2);
+
+        let mut world = crate::World::new(Default::default());
+        let entity = world.extend(components)[0];
+        assert_eq!(Rc::strong_count(&rc), 2);
+        world.remove(entity);
+    }
+    assert_eq!(Rc::strong_count(&rc), 1);
 }
 
 #[test]

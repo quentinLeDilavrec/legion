@@ -86,8 +86,10 @@ impl<M> EntityBuilder<M> {
             }
             Entry::Vacant(vacant) => {
                 let mut component = T::default();
+                // Safety: `component` is a valid instance of `T`; ownership is moved into the
+                // builder's storage by the bitwise copy, so we must not drop it here.
                 let addr = unsafe {
-                    let ptr = (&mut T::default() as *mut T).cast();
+                    let ptr = (&mut component as *mut T).cast();
                     self.inner.push(ty, ptr, vacant, meta)
                 };
                 core::mem::forget(component);
@@ -103,11 +105,22 @@ impl<M> EntityBuilder<M> {
         self.inner.info.iter().map(|(info, _, _)| info.id())
     }
 
+    /// Drops all buffered components and resets the builder.
     fn clear(&mut self) {
+        for (ty, offset, _) in &self.inner.info {
+            // Safety: every entry in `info` describes a live, owned component at `offset`.
+            unsafe { ty.drop(self.inner.storage.as_ptr().add(*offset)) };
+        }
+        self.forget_components();
+    }
+
+    /// Resets the builder without dropping components. Used once ownership of the buffered
+    /// components has been bitwise-moved elsewhere.
+    pub(super) fn forget_components(&mut self) {
+        self.inner.info.clear();
         self.inner.ids.clear();
         self.indices.clear();
         self.inner.cursor = 0;
-        // NOTE we do not clone stuff and use everything, thus we do not need to drop things pointed by structures in storage
     }
 
     unsafe fn _add(&mut self, ptr: *mut u8, ty: TypeInfo, meta: M) {
