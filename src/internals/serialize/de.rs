@@ -97,7 +97,7 @@ impl<'a, 'de, W: WorldDeserializer, E: EntitySerializer> Visitor<'de> for WorldV
         let hoist_ref_inner = &hoist_ref;
         set_entity_serializer(self.entity_serializer, || {
             let map = map_hoist.take().unwrap();
-            hoist_ref_inner.set(Some(run(world_deserializer, *world_inner, map)));
+            hoist_ref_inner.set(Some(run(world_deserializer, world_inner, map)));
         });
         hoist.into_inner().unwrap()
     }

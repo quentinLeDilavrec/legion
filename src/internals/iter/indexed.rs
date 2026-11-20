@@ -1,9 +1,24 @@
 use std::iter::FusedIterator;
 
+/// A collection which can be indexed without bounds checks.
+///
+/// # Safety
+///
+/// Implementors must guarantee that:
+/// - `len` returns the exact number of items, and is stable while the value is not mutated.
+/// - `get_unchecked` is sound for every `i < len()`, and yields distinct items for distinct
+///   indices, so that mutable items obtained for different indices never alias.
+/// - `split_at` returns two disjoint halves containing the items `[0, index)` and `[index, len)`.
 pub unsafe trait TrustedRandomAccess: Sized {
     type Item;
 
     fn len(&self) -> usize;
+
+    /// Returns the item at index `i`.
+    ///
+    /// # Safety
+    ///
+    /// `i` must be less than `self.len()`.
     unsafe fn get_unchecked(&mut self, i: usize) -> Self::Item;
     fn split_at(self, index: usize) -> (Self, Self);
 }

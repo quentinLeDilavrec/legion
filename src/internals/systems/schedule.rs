@@ -1,7 +1,7 @@
 //! Contains types related to defining system schedules.
 
 #[cfg(feature = "parallel")]
-use std::iter::repeat;
+use std::iter::repeat_with;
 use std::{
     cell::UnsafeCell,
     fmt::{Debug, Formatter},
@@ -153,10 +153,12 @@ impl Executor {
         if systems.len() > 1 {
             let mut static_dependency_counts = Vec::with_capacity(systems.len());
 
-            let mut static_dependants: Vec<Vec<_>> =
-                repeat(Vec::with_capacity(64)).take(systems.len()).collect();
-            let mut dynamic_dependants: Vec<Vec<_>> =
-                repeat(Vec::with_capacity(64)).take(systems.len()).collect();
+            let mut static_dependants: Vec<Vec<_>> = repeat_with(|| Vec::with_capacity(64))
+                .take(systems.len())
+                .collect();
+            let mut dynamic_dependants: Vec<Vec<_>> = repeat_with(|| Vec::with_capacity(64))
+                .take(systems.len())
+                .collect();
 
             #[derive(Default)]
             struct PreviousAccess {
@@ -413,6 +415,7 @@ impl Executor {
 }
 
 /// A factory for `Schedule`.
+#[derive(Default)]
 pub struct Builder {
     steps: Vec<Step>,
     accumulator: Vec<Box<dyn ParallelRunnable>>,
@@ -465,15 +468,6 @@ impl Builder {
         let mut steps = Vec::new();
         std::mem::swap(&mut self.steps, &mut steps);
         Schedule { steps }
-    }
-}
-
-impl Default for Builder {
-    fn default() -> Self {
-        Self {
-            steps: Vec::new(),
-            accumulator: Vec::new(),
-        }
     }
 }
 

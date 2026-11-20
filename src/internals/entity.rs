@@ -21,6 +21,9 @@ thread_local! {
     pub static ID_CLONE_MAPPINGS: RefCell<HashMap<Entity, Entity, EntityHasher>> = RefCell::new(HashMap::default());
 }
 
+// `Clone` is deliberately not a plain copy: while a clone-mapping is installed (e.g. during
+// world merges), cloning an `Entity` remaps it to its new ID.
+#[allow(clippy::non_canonical_clone_impl)]
 impl Clone for Entity {
     fn clone(&self) -> Self {
         ID_CLONE_MAPPINGS.with(|cell| {

@@ -1231,9 +1231,7 @@ mod test {
         let mut world = World::default();
         let entities: Vec<_> = world
             .extend(vec![(1usize, true), (2usize, true), (3usize, false)])
-            .iter()
-            .copied()
-            .collect();
+            .to_vec();
 
         assert_eq!(world.len(), 3);
         assert!(world.remove(entities[0]));
@@ -1245,14 +1243,12 @@ mod test {
         let mut world = World::default();
         let entities: Vec<_> = world
             .extend(vec![(1usize, true), (2usize, true), (3usize, false)])
-            .iter()
-            .copied()
-            .collect();
+            .to_vec();
 
         assert_eq!(world.len(), 3);
         assert!(world.remove(entities[0]));
         assert_eq!(world.len(), 2);
-        assert_eq!(world.remove(entities[0]), false);
+        assert!(!world.remove(entities[0]));
         assert_eq!(world.len(), 2);
     }
 
@@ -1282,10 +1278,13 @@ mod test {
             groups: vec![<(A, B, C, D)>::to_group()],
         });
 
-        world.extend(std::iter::repeat((A(0f32),)).take(10000));
-        world.extend(std::iter::repeat((A(0f32), B(1f32))).take(10000));
-        world.extend(std::iter::repeat((A(0f32), B(1f32), C(2f32))).take(10000));
-        world.extend(std::iter::repeat((A(0f32), B(1f32), C(2f32), D(3f32))).take(10000));
+        world.extend(std::iter::repeat_n((A(0f32),), 10000));
+        world.extend(std::iter::repeat_n((A(0f32), B(1f32)), 10000));
+        world.extend(std::iter::repeat_n((A(0f32), B(1f32), C(2f32)), 10000));
+        world.extend(std::iter::repeat_n(
+            (A(0f32), B(1f32), C(2f32), D(3f32)),
+            10000,
+        ));
         world.pack(PackOptions::force());
 
         let mut query = <(Read<A>, Write<B>)>::query();
@@ -1302,7 +1301,7 @@ mod test {
         let mut count = 0;
         for chunk in query.iter_chunks_mut(&mut world) {
             let (x, _) = chunk.into_components();
-            count += x.iter().count();
+            count += x.len();
         }
 
         assert_eq!(count, 30000);

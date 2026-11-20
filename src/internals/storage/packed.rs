@@ -127,10 +127,12 @@ impl<T> ComponentVec<T> {
         match self {
             Self::Packed {
                 raw, offset, len, ..
-            } => (
-                unsafe { NonNull::new_unchecked(raw.ptr.as_ptr().add(*offset)) },
-                *len,
-            ),
+            } => {
+                (
+                    unsafe { NonNull::new_unchecked(raw.ptr.as_ptr().add(*offset)) },
+                    *len,
+                )
+            }
             Self::Loose { raw, len, .. } => {
                 (unsafe { NonNull::new_unchecked(raw.ptr.as_ptr()) }, *len)
             }
@@ -354,7 +356,7 @@ impl<T: Component> UnknownComponentStorage for PackedStorage<T> {
     }
 
     fn insert_archetype(&mut self, archetype: ArchetypeIndex, index: Option<usize>) {
-        let index = index.unwrap_or_else(|| self.slices.len());
+        let index = index.unwrap_or(self.slices.len());
         let arch_index = archetype.0 as usize;
 
         // create new vector for archetype
@@ -390,7 +392,7 @@ impl<T: Component> UnknownComponentStorage for PackedStorage<T> {
         self.entity_len -= count;
         dst.entity_len += count;
 
-        if dst.allocations[dst_index].len() == 0 {
+        if dst.allocations[dst_index].is_empty() {
             // fast path:
             // swap the allocations
             std::mem::swap(

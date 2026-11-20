@@ -187,7 +187,7 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
             let cache = if F::can_match_group() {
                 let components = F::group_components();
                 components
-                    .get(0)
+                    .first()
                     .and_then(|t| world.group(*t))
                     .map(|(i, g)| (i, g.exact_match(&components)))
                     .and_then(|(group, subgroup)| {
@@ -198,9 +198,11 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
             };
 
             // else use an unordered result
-            cache.unwrap_or_else(|| Cache::Unordered {
-                archetypes: Vec::new(),
-                seen: 0,
+            cache.unwrap_or_else(|| {
+                Cache::Unordered {
+                    archetypes: Vec::new(),
+                    seen: 0,
+                }
             })
         });
 
@@ -269,7 +271,9 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
 
         let arch_slice = [location.archetype()];
         let arch_slice_ref: &[ArchetypeIndex] = &arch_slice;
-        let arch_slice_ref = unsafe { std::mem::transmute(arch_slice_ref) };
+        let arch_slice_ref = unsafe {
+            std::mem::transmute::<&[ArchetypeIndex], &'world [ArchetypeIndex]>(arch_slice_ref)
+        };
         let result = QueryResult::unordered(arch_slice_ref);
         let mut fetch = if let Some(Some(fetch)) = unsafe {
             <V::View as View<'world>>::fetch(accessor.components(), accessor.archetypes(), result)

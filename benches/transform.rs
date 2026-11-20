@@ -49,7 +49,7 @@ fn process(
         * Matrix4::from_translation(*position)
 }
 
-fn ideal(data: &mut Vec<(Position, Orientation, Scale, Transform)>) {
+fn ideal(data: &mut [(Position, Orientation, Scale, Transform)]) {
     for (pos, orient, scale, trans) in data.iter_mut() {
         trans.0 = process(&pos.0, &orient.0, &scale.0);
     }

@@ -347,7 +347,7 @@ impl CommandBuffer {
     pub fn remove_component<C: Component>(&mut self, entity: Entity) {
         self.insert_writer(RemoveComponentCommand {
             entity,
-            _marker: PhantomData::<C>::default(),
+            _marker: PhantomData::<C>,
         });
     }
 

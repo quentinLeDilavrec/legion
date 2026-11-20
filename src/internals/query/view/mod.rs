@@ -142,6 +142,11 @@ pub trait Fetch: IntoIndexableIter + Send + Sync {
 }
 
 /// A fetch which only retrieves shared references to component data.
+///
+/// # Safety
+///
+/// Implementors must only ever expose shared (immutable) access to component data through
+/// the fetch, including via `get_components`, as callers may rely on this to alias the data.
 pub unsafe trait ReadOnlyFetch: Fetch {
     /// Returns the fetch's retrieved component slices
     fn get_components(&self) -> Self::Data;

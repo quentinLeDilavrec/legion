@@ -37,6 +37,7 @@ pub trait CustomEntitySerializer {
     fn to_serialized(&self, entity: Entity) -> Self::SerializedID;
 
     /// Convert a `SerializedEntity` to an `Entity`.
+    #[allow(clippy::wrong_self_convention)] // renaming this would be a breaking change to a public trait
     fn from_serialized(&self, serialized: Self::SerializedID) -> Entity;
 }
 

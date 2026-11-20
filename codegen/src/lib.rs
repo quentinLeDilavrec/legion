@@ -512,8 +512,9 @@ fn path_match(path: &TypePath, segments: &[&str]) -> bool {
         .all(|(a, b)| b.ident == *a)
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Default)]
 enum SystemType {
+    #[default]
     Simple,
     ForEach,
     ParForEach,
@@ -526,12 +527,6 @@ impl SystemType {
             SystemType::ForEach => true,
             SystemType::ParForEach => true,
         }
-    }
-}
-
-impl Default for SystemType {
-    fn default() -> Self {
-        SystemType::Simple
     }
 }
 
