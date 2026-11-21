@@ -795,4 +795,119 @@ mod test {
             assert_eq!(slice.into_slice(), &[1usize, 2usize]);
         }
     }
+
+    /// Fragmentation divides by `entity_len`,
+    /// so an empty storage yields NaN (no archetypes: 0/0)
+    /// or infinity (empty loose archetypes: 1/0).
+    #[test]
+    fn fragmentation_of_empty_storage_is_finite() {
+        let no_archetypes = PackedStorage::<usize>::default();
+        assert!(no_archetypes.fragmentation().is_finite());
+
+        let mut storage = PackedStorage::<usize>::default();
+        storage.insert_archetype(ArchetypeIndex(0), Some(0));
+        assert!(storage.fragmentation().is_finite());
+    }
+
+    // ---- Tests checking overflows and leaks ----
+
+    fn loose_capacity<T>(vec: &ComponentVec<T>) -> usize {
+        match vec {
+            ComponentVec::Loose { raw, .. } => raw.cap,
+            ComponentVec::Packed { cap, .. } => *cap,
+        }
+    }
+
+    /// Overflow test: growing a `Packed` vec allocates `len` elements instead of `new_capacity`, so the
+    /// resulting `Loose` vec has no room for the elements the caller asked for. The following
+    /// `extend_memcopy` then writes past the end of the buffer (heap overflow).
+    ///
+    /// This test checks the capacity invariant only, so it does not itself trigger the overflow.
+    #[test]
+    fn packed_grow_provides_requested_capacity() {
+        let mut vec = ComponentVec::<u64>::new();
+        let data = [1u64, 2, 3];
+        unsafe {
+            vec.extend_memcopy(0, data.as_ptr(), data.len());
+            vec.pack(Rc::new(RawAlloc::new(3)), 0);
+        }
+        assert!(matches!(vec, ComponentVec::Packed { len: 3, cap: 3, .. }));
+
+        // Ask for room for one more element (this is what `extend_memcopy` does first).
+        vec.ensure_capacity(0, 1);
+
+        let len = vec.len();
+        let cap = loose_capacity(&vec);
+        assert!(
+            cap - len >= 1,
+            "no room for the requested element after growing: len = {len}, cap = {cap}"
+        );
+        assert_eq!(&*vec, &[1u64, 2, 3]);
+    }
+
+    /// Overflow test: same cause, directly through `grow`.
+    #[test]
+    fn packed_grow_allocates_new_capacity() {
+        let mut vec = ComponentVec::<u64>::new();
+        let data = [1u64, 2, 3];
+        unsafe {
+            vec.extend_memcopy(0, data.as_ptr(), data.len());
+            vec.pack(Rc::new(RawAlloc::new(3)), 0);
+        }
+
+        vec.grow(0, 10);
+
+        assert!(
+            loose_capacity(&vec) >= 10,
+            "grow(10) produced capacity {}",
+            loose_capacity(&vec)
+        );
+    }
+
+    /// Leak test: the slow path of `transfer_archetype` `mem::forget`s the old source vec.
+    /// That is right for the elements (they were memcopied) but it also leaks the buffer,
+    /// and for a packed vec it leaks an `Rc` reference so the shared allocation is never freed.
+    #[test]
+    fn transfer_archetype_slow_path_does_not_leak_packed_allocation() {
+        fn insert_usizes(
+            storage: &mut PackedStorage<usize>,
+            archetype: ArchetypeIndex,
+            values: &[usize],
+        ) {
+            unsafe { storage.extend_memcopy(archetype, values.as_ptr(), values.len()) };
+        }
+
+        let mut src = PackedStorage::<usize>::default();
+        src.insert_archetype(ArchetypeIndex(0), Some(0));
+        insert_usizes(&mut src, ArchetypeIndex(0), &[1, 2, 3]);
+        src.pack(0);
+
+        // Hold our own reference to the shared allocation so we can observe its refcount.
+        let shared = match &src.allocations[0] {
+            ComponentVec::Packed { raw, .. } => Rc::clone(raw),
+            ComponentVec::Loose { .. } => panic!("expected the archetype to be packed"),
+        };
+        assert_eq!(Rc::strong_count(&shared), 2); // the vec + us
+
+        // Destination is non-empty, which forces the memcopy (slow) path.
+        let mut dst = PackedStorage::<usize>::default();
+        dst.insert_archetype(ArchetypeIndex(0), Some(0));
+        insert_usizes(&mut dst, ArchetypeIndex(0), &[10]);
+
+        src.transfer_archetype(ArchetypeIndex(0), ArchetypeIndex(0), &mut dst);
+
+        // The data arrived correctly...
+        unsafe {
+            let slice = dst.get_mut(ArchetypeIndex(0)).unwrap();
+            assert_eq!(slice.into_slice(), &[10usize, 1, 2, 3]);
+        }
+        assert_eq!(src.get(ArchetypeIndex(0)).unwrap().into_slice().len(), 0);
+
+        // ...and the source no longer references the shared buffer, so only we do.
+        assert_eq!(
+            Rc::strong_count(&shared),
+            1,
+            "the old source vec was forgotten, leaking its Rc reference"
+        );
+    }
 }
