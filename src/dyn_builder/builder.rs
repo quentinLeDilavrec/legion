@@ -6,6 +6,9 @@ use crate::internals::storage::{
     UnknownComponentStorage,
 };
 
+/// Alignment of the empty (unallocated) component buffer. Must be a power of two.
+const EMPTY_ALIGN: usize = 8;
+
 /// Associated vacant entry
 type VacantEntry<'a> = hash_map::VacantEntry<'a, TypeId, usize>;
 
@@ -185,12 +188,20 @@ impl<M> Inner<M> {
     /// otherwise it was allocated with `layout` by the global allocator.
     /// This invariant is relied on in the implementation.
     unsafe fn push(&mut self, ty: TypeInfo, ptr: *mut u8, vacant: VacantEntry, meta: M) -> *mut u8 {
-        let offset = align(self.cursor, ty.layout().align());
-        let end = offset + ty.layout().size();
+        // Both steps can overflow for pathological sizes.
+        // Panic rather than wrap, because a wrapped `end` would pass the capacity check below
+        // and lead to out-of-bounds writes.
+        let offset = self
+            .cursor
+            .checked_next_multiple_of(ty.layout().align())
+            .expect("component buffer offset overflow");
+        let end = offset
+            .checked_add(ty.layout().size())
+            .expect("component buffer size overflow");
         if end > self.layout.size() || ty.layout().align() > self.layout.align() {
             let new_align = self.layout.align().max(ty.layout().align());
             // Safety: `storage` holds `cursor` initialized-or-padding bytes, and
-            // `end = align(cursor, a) + size >= cursor`.
+            // `end >= offset >= cursor`, since neither step above can wrap.
             let (new_storage, new_layout) =
                 unsafe { Self::grow(end, self.cursor, new_align, self.storage) };
             if self.layout.size() != 0 {
@@ -217,11 +228,6 @@ impl<M> Inner<M> {
     }
 }
 
-fn align(x: usize, alignment: usize) -> usize {
-    debug_assert!(alignment.is_power_of_two());
-    (x + alignment - 1) & (!alignment + 1)
-}
-
 unsafe impl<M: Send> Send for EntityBuilder<M> {}
 unsafe impl<M: Sync> Sync for EntityBuilder<M> {}
 
@@ -242,8 +248,12 @@ impl<M> Default for EntityBuilder<M> {
     fn default() -> Self {
         Self {
             inner: Inner {
-                storage: NonNull::dangling(),
-                layout: Layout::from_size_align(0, 8).unwrap(),
+                // The empty buffer must be aligned to its layout's alignment: zero-sized components
+                // with `align <= EMPTY_ALIGN` are "stored" at offset 0 without ever allocating, and
+                // references to them must still be aligned.
+                storage: NonNull::new(std::ptr::without_provenance_mut(EMPTY_ALIGN))
+                    .expect("EMPTY_ALIGN is non-zero"),
+                layout: Layout::from_size_align(0, EMPTY_ALIGN).unwrap(),
                 cursor: 0,
                 info: Vec::new(),
                 ids: Vec::new(),

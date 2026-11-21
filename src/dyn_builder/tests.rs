@@ -33,6 +33,35 @@ fn buffer_growth_preserves_components() {
 }
 
 #[test]
+fn zero_sized_components_are_aligned() {
+    // ZSTs never force an allocation unless their alignment exceeds the empty buffer's, so
+    // references to them must be aligned even though the buffer is unallocated.
+    #[derive(Debug, PartialEq)]
+    #[repr(align(8))]
+    struct Aligned8;
+    #[derive(Debug, PartialEq)]
+    #[repr(align(64))]
+    struct Aligned64;
+
+    let mut components = EntityBuilder::default();
+    components.add(Aligned8);
+    components.add(());
+    components.add(Aligned64);
+
+    let r = components.get_mut::<Aligned8>().unwrap();
+    assert!(std::ptr::from_mut(r).is_aligned());
+    let r = components.get_mut::<Aligned64>().unwrap();
+    assert!(std::ptr::from_mut(r).is_aligned());
+    assert_eq!(components.get_mut::<()>(), Some(&mut ()));
+
+    let mut world = crate::World::new(Default::default());
+    let entity = world.extend(components)[0];
+    let entry = world.entry(entity).unwrap();
+    assert_eq!(entry.get_component::<Aligned8>(), Ok(&Aligned8));
+    assert_eq!(entry.get_component::<Aligned64>(), Ok(&Aligned64));
+}
+
+#[test]
 fn simple() {
     let mut world = crate::World::new(Default::default());
     let mut components = EntityBuilder::default();
