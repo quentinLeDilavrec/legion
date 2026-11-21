@@ -246,9 +246,7 @@ impl<'a> SubWorld<'a> {
 }
 
 impl<'a> EntityStore for SubWorld<'a> {
-    fn get_component_storage<V: for<'b> View<'b>>(
-        &self,
-    ) -> Result<StorageAccessor<'_>, EntityAccessError> {
+    fn get_component_storage<V: View>(&self) -> Result<StorageAccessor<'_>, EntityAccessError> {
         if V::validate_access(&self.components) {
             Ok(self
                 .world

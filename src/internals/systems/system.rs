@@ -133,7 +133,7 @@ pub struct System<R, Q, F> {
 
 impl<R, Q, F> Runnable for System<R, Q, F>
 where
-    R: for<'a> ResourceSet<'a>,
+    R: ResourceSet,
     Q: QuerySet,
     F: SystemFn<R, Q>,
 {
@@ -170,15 +170,8 @@ where
     }
 
     unsafe fn run_unsafe(&mut self, world: &World, resources: &UnsafeResources) {
-        // safety:
-        // It is difficult to correctly communicate the lifetime of the resource fetch through to the system closure.
-        // We are hacking this by passing the fetch with a static lifetime to its internal references.
-        // This is sound because the fetch structs only provide access to the resource through reborrows on &self.
-        // As the fetch struct is created on the stack here, and the resources it is holding onto is a parameter to this function,
-        // we know for certain that the lifetime of the fetch struct (which constrains the lifetime of the resource the system sees)
-        // must be shorter than the lifetime of the resource.
-        let resources_static = unsafe { &*std::ptr::from_ref(resources) };
-        let mut resources = unsafe { R::fetch_unchecked(resources_static) };
+        // safety: the caller upholds the aliasing contract of `run_unsafe`.
+        let mut resources = unsafe { R::fetch_unchecked(resources) };
 
         let queries = &mut self.queries;
         let component_access = ComponentAccess::Allow(Cow::Borrowed(&self.access.components));
@@ -195,28 +188,28 @@ where
 }
 
 /// A function which can provide the body of a system.
-pub trait SystemFn<R: ResourceSet<'static>, Q: QuerySet> {
+pub trait SystemFn<R: ResourceSet, Q: QuerySet> {
     /// Runs the system body.
     fn run(
         &mut self,
         commands: &mut CommandBuffer,
         world: &mut SubWorld,
-        resources: &mut R::Result,
+        resources: &mut R::Result<'_>,
         queries: &mut Q,
     );
 }
 
 impl<F, R, Q> SystemFn<R, Q> for F
 where
-    R: ResourceSet<'static>,
+    R: ResourceSet,
     Q: QuerySet,
-    F: FnMut(&mut CommandBuffer, &mut SubWorld, &mut R::Result, &mut Q) + 'static,
+    F: for<'a> FnMut(&mut CommandBuffer, &mut SubWorld, &mut R::Result<'a>, &mut Q) + 'static,
 {
     fn run(
         &mut self,
         commands: &mut CommandBuffer,
         world: &mut SubWorld,
-        resources: &mut R::Result,
+        resources: &mut R::Result<'_>,
         queries: &mut Q,
     ) {
         (self)(commands, world, resources, queries)
@@ -421,12 +414,12 @@ where
         run_fn: F,
     ) -> System<<R as ConsFlatten>::Output, <Q as ConsFlatten>::Output, F>
     where
-        <R as ConsFlatten>::Output: for<'a> ResourceSet<'a>,
+        <R as ConsFlatten>::Output: ResourceSet,
         <Q as ConsFlatten>::Output: QuerySet,
-        F: FnMut(
+        F: for<'a> FnMut(
             &mut CommandBuffer,
             &mut SubWorld,
-            &mut <<R as ConsFlatten>::Output as ResourceSet<'static>>::Result,
+            &mut <<R as ConsFlatten>::Output as ResourceSet>::Result<'a>,
             &mut <Q as ConsFlatten>::Output,
         ),
     {

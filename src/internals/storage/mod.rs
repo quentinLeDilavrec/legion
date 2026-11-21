@@ -253,12 +253,16 @@ impl<'a, T: Component> IndexMut<ComponentIndex> for ComponentSliceMut<'a, T> {
 
 /// A storage location for component data slices. Each component storage may hold once slice for
 /// each archetype inserted into the storage.
-pub trait ComponentStorage<'a, T: Component>: UnknownComponentStorage + Default {
+pub trait ComponentStorage<T: Component>: UnknownComponentStorage + Default {
     /// An iterator of shared archetype slice references.
-    type Iter: Iterator<Item = ComponentSlice<'a, T>>;
+    type Iter<'a>: Iterator<Item = ComponentSlice<'a, T>>
+    where
+        Self: 'a;
 
     /// An iterator of mutable archetype slice references.
-    type IterMut: Iterator<Item = ComponentSliceMut<'a, T>>;
+    type IterMut<'a>: Iterator<Item = ComponentSliceMut<'a, T>>
+    where
+        Self: 'a;
 
     /// Returns the number of archetype slices stored.
     fn len(&self) -> usize;
@@ -276,24 +280,24 @@ pub trait ComponentStorage<'a, T: Component>: UnknownComponentStorage + Default 
     unsafe fn extend_memcopy(&mut self, archetype: ArchetypeIndex, ptr: *const T, len: usize);
 
     /// Gets the component slice for the specified archetype.
-    fn get(&'a self, archetype: ArchetypeIndex) -> Option<ComponentSlice<'a, T>>;
+    fn get(&self, archetype: ArchetypeIndex) -> Option<ComponentSlice<'_, T>>;
 
     /// Gets a mutable component slice for the specified archetype.
     ///
     /// # Safety
     /// Ensure that the requested archetype slice is not concurrently borrowed anywhere else such that memory
     /// is not mutably aliased.
-    unsafe fn get_mut(&'a self, archetype: ArchetypeIndex) -> Option<ComponentSliceMut<'a, T>>;
+    unsafe fn get_mut(&self, archetype: ArchetypeIndex) -> Option<ComponentSliceMut<'_, T>>;
 
     /// Iterates through all archetype component slices.
-    fn iter(&'a self, start_inclusive: usize, end_exclusive: usize) -> Self::Iter;
+    fn iter(&self, start_inclusive: usize, end_exclusive: usize) -> Self::Iter<'_>;
 
     /// Iterates through all mutable archetype component slices.
     ///
     /// # Safety
     /// Ensure that all requested archetype slices are not concurrently borrowed anywhere else such that memory
     /// is not mutably aliased.
-    unsafe fn iter_mut(&'a self, start_inclusive: usize, end_exclusive: usize) -> Self::IterMut;
+    unsafe fn iter_mut(&self, start_inclusive: usize, end_exclusive: usize) -> Self::IterMut<'_>;
 }
 
 /// Contains the storages for all component types in a world.

@@ -62,7 +62,7 @@ impl Display for ComponentTypeId {
 /// This trait has a blanket impl for all applicable types.
 pub trait Component: 'static + Sized + Send + Sync {
     /// The storage type required to hold all instances of this component in a world.
-    type Storage: for<'a> ComponentStorage<'a, Self>;
+    type Storage: ComponentStorage<Self>;
 }
 
 impl<T: 'static + Sized + Send + Sync> Component for T {

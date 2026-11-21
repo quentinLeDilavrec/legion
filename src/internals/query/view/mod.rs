@@ -28,7 +28,7 @@ pub mod try_write;
 pub mod write;
 
 pub trait IntoView {
-    type View: for<'a> View<'a> + 'static;
+    type View: View + 'static;
 }
 
 impl<T: Component> IntoView for &T {
@@ -58,13 +58,18 @@ pub trait DefaultFilter {
 }
 
 /// A type which can pull entity data out of a world.
-pub trait View<'data>: DefaultFilter + Sized {
+pub trait View: DefaultFilter + Sized {
     /// The type of component references returned.
-    type Element: Send + Sync + 'data;
+    type Element<'data>: Send + Sync + 'data;
     /// The fetch type yielded for each archetype.
-    type Fetch: Fetch + IntoIndexableIter<Item = Self::Element> + 'data;
+    type Fetch<'data>: Fetch + IntoIndexableIter<Item = Self::Element<'data>> + 'data;
     /// The iterator type which pulls entity data out of a world.
-    type Iter: Iterator<Item = Option<Self::Fetch>> + 'data;
+    ///
+    /// The `'data` lifetime is the lifetime of the component data yielded by the iterator.
+    /// The `'index` lifetime is the lifetime of the archetype index the iterator walks.
+    /// The two are independent, so the iterator may borrow its index from somewhere which is
+    /// shorter lived than the world, without restricting the lifetime of the yielded data.
+    type Iter<'data, 'index>: Iterator<Item = Option<Self::Fetch<'data>>>;
     /// Contains the type IDs read by the view.
     type Read: AsRef<[ComponentTypeId]>;
     /// Contains the type IDs written by the view.
@@ -77,11 +82,11 @@ pub trait View<'data>: DefaultFilter + Sized {
     /// This method may return mutable references to entity data via shared world references.
     /// The caller must ensure that no two view iterators are alive at the same time which access
     /// any components in a manner which may cause mutable aliasing.
-    unsafe fn fetch(
+    unsafe fn fetch<'data, 'index>(
         components: &'data Components,
         archetypes: &'data [Archetype],
-        query: QueryResult<'data>,
-    ) -> Self::Iter;
+        query: QueryResult<'index>,
+    ) -> Self::Iter<'data, 'index>;
 
     /// Determines if this view type is valid. Panics if checks fail.
     fn validate();
@@ -190,18 +195,18 @@ macro_rules! impl_view_tuple {
             type View = ($( $ty::View, )*);
         }
 
-        impl<'a, $( $ty: View<'a> + 'a ),*> View<'a> for ($( $ty, )*) {
-            type Element = <Self::Fetch as IntoIndexableIter>::Item;
-            type Fetch = MultiFetch<'a, ($( $ty::Fetch, )*)>;
-            type Iter = MapInto<Zip<($( $ty::Iter, )*)>, Option<MultiFetch<'a, ($( $ty::Fetch, )*)>>>;
+        impl<$( $ty: View ),*> View for ($( $ty, )*) {
+            type Element<'a> = <Self::Fetch<'a> as IntoIndexableIter>::Item;
+            type Fetch<'a> = MultiFetch<'a, ($( $ty::Fetch<'a>, )*)>;
+            type Iter<'a, 'i> = MapInto<Zip<($( $ty::Iter<'a, 'i>, )*)>, Option<MultiFetch<'a, ($( $ty::Fetch<'a>, )*)>>>;
             type Read = Vec<ComponentTypeId>;
             type Write = Vec<ComponentTypeId>;
 
-            unsafe fn fetch(
+            unsafe fn fetch<'a, 'i>(
                 components: &'a Components,
                 archetypes: &'a [Archetype],
-                query: QueryResult<'a>,
-            ) -> Self::Iter {
+                query: QueryResult<'i>,
+            ) -> Self::Iter<'a, 'i> {
                 MapInto::new(
                     multizip(
                         (

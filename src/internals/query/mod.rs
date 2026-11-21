@@ -251,39 +251,31 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     /// # Safety
     /// This function allows mutable access via a shared world reference. The caller is responsible for
     /// ensuring that no component accesses may create mutable aliases.
-    pub unsafe fn get_unchecked<'query, 'world, T>(
-        &'query mut self,
+    pub unsafe fn get_unchecked<'world, T>(
+        &mut self,
         world: &'world T,
         entity: Entity,
-    ) -> Result<<V::View as View<'world>>::Element, EntityAccessError>
+    ) -> Result<<V::View as View>::Element<'world>, EntityAccessError>
     where
         T: EntityStore,
     {
         let location = world.entry_ref(entity)?.location();
         let accessor = world.get_component_storage::<V::View>().unwrap();
 
-        // safety:
-        // This is much like the similar usage of transmute inside iter_chunks_unchecked, see
-        // there for more details. In this case, the situation is simpler; we know the return
-        // value of this function references only data from the world and View::fetch can't
-        // put the reference away somewhere invalid (because the param is still bound to 'world not
-        // 'static), so the arch_slice on the stack won't still be in use after it falls out of scope.
-        let mut fetch = unsafe {
-            let arch_slice = [location.archetype()];
-            let arch_slice_ref =
-                std::mem::transmute::<&[ArchetypeIndex], &'world [ArchetypeIndex]>(&arch_slice);
-            let result = QueryResult::unordered(arch_slice_ref);
-            if let Some(Some(fetch)) = <V::View as View<'world>>::fetch(
-                accessor.components(),
-                accessor.archetypes(),
-                result,
-            )
-            .next()
-            {
-                fetch
-            } else {
-                return Err(EntityAccessError::EntityNotFound);
-            }
+        // The archetype index lives on the stack. `View::fetch` keeps the index lifetime separate
+        // from the lifetime of the component data, so the fetch we get back is bound only to the
+        // world and can outlive `arch_slice`.
+        let arch_slice = [location.archetype()];
+        let result = QueryResult::unordered(&arch_slice);
+        // safety: the caller upholds the aliasing contract of this function
+        let mut fetch = if let Some(Some(fetch)) = unsafe {
+            <V::View as View>::fetch(accessor.components(), accessor.archetypes(), result)
+        }
+        .next()
+        {
+            fetch
+        } else {
+            return Err(EntityAccessError::EntityNotFound);
         };
 
         // if our filter has conditions beyond that of the view, then we need to evaluate the query
@@ -309,7 +301,7 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         &mut self,
         world: &'world mut T,
         entity: Entity,
-    ) -> Result<<V::View as View<'world>>::Element, EntityAccessError>
+    ) -> Result<<V::View as View>::Element<'world>, EntityAccessError>
     where
         T: EntityStore,
     {
@@ -322,10 +314,10 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         &'query mut self,
         world: &'world T,
         entity: Entity,
-    ) -> Result<<V::View as View<'world>>::Element, EntityAccessError>
+    ) -> Result<<V::View as View>::Element<'world>, EntityAccessError>
     where
         T: EntityStore,
-        <V::View as View<'world>>::Fetch: ReadOnlyFetch,
+        <V::View as View>::Fetch<'world>: ReadOnlyFetch,
     {
         // safety: the view is readonly - it cannot create mutable aliases
         unsafe { self.get_unchecked(world, entity) }
@@ -342,56 +334,23 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     /// # Safety
     /// This function allows mutable access via a shared world reference. The caller is responsible for
     /// ensuring that no component accesses may create mutable aliases.
-    pub unsafe fn iter_chunks_unchecked<'query, 'world, T: EntityStore>(
+    pub unsafe fn iter_chunks_unchecked<'query, 'world: 'query, T: EntityStore>(
         &'query mut self,
         world: &'world T,
     ) -> ChunkIter<'world, 'query, V::View, F> {
         let accessor = world.get_component_storage::<V::View>().unwrap();
-        let (_, result) = self.evaluate_query(&accessor);
+        let (filter, result) = self.evaluate_query(&accessor);
 
-        // What we want:
-        // Iterators returned from this function should yield component references
-        // which are bound to the world, not the query, but the iterator itself
-        // borrows data from both; while the iterator is alive, both the query and
-        // world are borrowed, but it should be possible to drop the iterator and query
-        // and keep those component references around as long as the world is alive.
-        //
-        // The ChunkIter keeps these two lifetimes separate. It yields component references
-        // with the 'world lifetime, and stores internal state with 'query.
-        //
-        // The problem:
-        // The index used by the iterator, depending on the state of the query, might be
-        // borrowing data from *either* the query or the world. Therefore the two lifetimes
-        // "flow into" each other. This confuses rustc as it can't pick a lifetime.
-        //
-        // Solving this with safe code would require two lifetime HRTBs on View/Fetch with
-        // constraints between them. You can't do this.
-        //
-        // The workaround:
-        // We transmute the lifetime of the index data into either 'world or 'query
-        // depending on what is needed. This essentially creates a virtual 'index lifetime,
-        // which is coerced into whatever is needed. This virtual lifetime is valid where
-        // *both* 'query and 'world lifetimes are valid.
-        //
-        // We know 'query and 'world are both valid in this fn, as they are input lifetimes.
-        //
-        // The ChunkIter contains both lifetimes, so the returned iterator struct will extend
-        // those lifetimes for at least as long as it is in scope.
-        //
-        // The ChunkIter only returns (unmolested) 'world references. Our virtual lifetime
-        // cannot leak out of it. When the iterator is dropped, our virtual lifetime dies with it.
-
-        let result = unsafe { std::mem::transmute::<QueryResult<'_>, QueryResult<'world>>(result) };
-        let indices = unsafe {
-            std::mem::transmute::<Iter<'_, ArchetypeIndex>, Iter<'query, ArchetypeIndex>>(
-                result.index.iter(),
-            )
-        };
-
+        // The iterator yields component references bound to the world (`'world`), while the
+        // archetype index it walks is borrowed from the query's cache or from the world's
+        // groups, so it is only valid for `'query`. `View::fetch` takes the two lifetimes
+        // separately, so no lifetime needs to be extended here.
+        let indices = result.index().iter();
+        // safety: the caller upholds the aliasing contract of this function
         let fetch = unsafe {
-            <V::View as View<'world>>::fetch(accessor.components(), accessor.archetypes(), result)
+            <V::View as View>::fetch(accessor.components(), accessor.archetypes(), result)
         };
-        let filter = self.filter.get_mut();
+        let filter = filter.get_mut();
         filter.prepare(world.id());
         ChunkIter {
             inner: fetch,
@@ -423,7 +382,7 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     ///
     /// Each chunk contains slices of components for entities which all have the same component layout.
     #[inline]
-    pub fn iter_chunks_mut<'query, 'world, T: EntityStore>(
+    pub fn iter_chunks_mut<'query, 'world: 'query, T: EntityStore>(
         &'query mut self,
         world: &'world mut T,
     ) -> ChunkIter<'world, 'query, V::View, F> {
@@ -449,12 +408,12 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     /// Each chunk contains slices of components for entities which all have the same component layout.
     /// Only usable with queries whose views are read-only.
     #[inline]
-    pub fn iter_chunks<'query, 'world, T: EntityStore>(
+    pub fn iter_chunks<'query, 'world: 'query, T: EntityStore>(
         &'query mut self,
         world: &'world T,
     ) -> ChunkIter<'world, 'query, V::View, F>
     where
-        <V::View as View<'world>>::Fetch: ReadOnlyFetch,
+        <V::View as View>::Fetch<'world>: ReadOnlyFetch,
     {
         // safety: the view is readonly - it cannot create mutable aliases
         unsafe { self.iter_chunks_unchecked(world) }
@@ -471,7 +430,7 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         world: &'a T,
     ) -> par_iter::ParChunkIter<'a, V::View, F>
     where
-        <V::View as View<'a>>::Fetch: ReadOnlyFetch,
+        <V::View as View>::Fetch<'a>: ReadOnlyFetch,
     {
         // safety: the view is readonly - it cannot create mutable aliases
         unsafe { self.par_iter_chunks_unchecked(world) }
@@ -489,7 +448,7 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     /// This function allows mutable access via a shared world reference. The caller is responsible for
     /// ensuring that no component accesses may create mutable aliases.
     #[inline]
-    pub unsafe fn iter_unchecked<'query, 'world, T: EntityStore>(
+    pub unsafe fn iter_unchecked<'query, 'world: 'query, T: EntityStore>(
         &'query mut self,
         world: &'world T,
     ) -> std::iter::Flatten<ChunkIter<'world, 'query, V::View, F>> {
@@ -516,7 +475,7 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     ///
     /// Prefer `for_each_mut` as it yields better performance.
     #[inline]
-    pub fn iter_mut<'query, 'world, T: EntityStore>(
+    pub fn iter_mut<'query, 'world: 'query, T: EntityStore>(
         &'query mut self,
         world: &'world mut T,
     ) -> std::iter::Flatten<ChunkIter<'world, 'query, V::View, F>> {
@@ -540,12 +499,12 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     /// Prefer `for_each` as it yields better performance.
     /// Only usable with queries whose views are read-only.
     #[inline]
-    pub fn iter<'query, 'world, T: EntityStore>(
+    pub fn iter<'query, 'world: 'query, T: EntityStore>(
         &'query mut self,
         world: &'world T,
     ) -> std::iter::Flatten<ChunkIter<'world, 'query, V::View, F>>
     where
-        <V::View as View<'world>>::Fetch: ReadOnlyFetch,
+        <V::View as View>::Fetch<'world>: ReadOnlyFetch,
     {
         // safety: the view is readonly - it cannot create mutable aliases
         unsafe { self.iter_unchecked(world) }
@@ -561,7 +520,7 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         world: &'a T,
     ) -> rayon::iter::Flatten<par_iter::ParChunkIter<'a, V::View, F>>
     where
-        <V::View as View<'a>>::Fetch: ReadOnlyFetch,
+        <V::View as View>::Fetch<'a>: ReadOnlyFetch,
     {
         // safety: the view is readonly - it cannot create mutable aliases
         unsafe { self.par_iter_unchecked(world) }
@@ -579,12 +538,12 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     /// This function allows mutable access via a shared world reference. The caller is responsible for
     /// ensuring that no component accesses may create mutable aliases.
     #[inline]
-    pub unsafe fn for_each_chunk_unchecked<'query, 'world, T: EntityStore, Body>(
+    pub unsafe fn for_each_chunk_unchecked<'query, 'world: 'query, T: EntityStore, Body>(
         &'query mut self,
         world: &'world T,
         mut f: Body,
     ) where
-        Body: FnMut(ChunkView<<V::View as View<'world>>::Fetch>),
+        Body: FnMut(ChunkView<<V::View as View>::Fetch<'world>>),
     {
         // safety: the caller upholds the aliasing contract of this function
         for chunk in unsafe { self.iter_chunks_unchecked(world) } {
@@ -606,7 +565,7 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         world: &'a T,
         f: Body,
     ) where
-        Body: Fn(ChunkView<<V::View as View<'a>>::Fetch>) + Send + Sync,
+        Body: Fn(ChunkView<<V::View as View>::Fetch<'a>>) + Send + Sync,
     {
         use rayon::iter::ParallelIterator;
         // safety: the caller upholds the aliasing contract of this function
@@ -617,12 +576,12 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     ///
     /// Each chunk contains slices of components for entities which all have the same component layout.
     #[inline]
-    pub fn for_each_chunk_mut<'query, 'world, T: EntityStore, Body>(
+    pub fn for_each_chunk_mut<'query, 'world: 'query, T: EntityStore, Body>(
         &'query mut self,
         world: &'world mut T,
         f: Body,
     ) where
-        Body: FnMut(ChunkView<<V::View as View<'world>>::Fetch>),
+        Body: FnMut(ChunkView<<V::View as View>::Fetch<'world>>),
     {
         // safety: we have exclusive access to world
         unsafe { self.for_each_chunk_unchecked(world, f) };
@@ -634,7 +593,7 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     #[inline]
     pub fn par_for_each_chunk_mut<'a, T: EntityStore, Body>(&'a mut self, world: &'a mut T, f: Body)
     where
-        Body: Fn(ChunkView<<V::View as View<'a>>::Fetch>) + Send + Sync,
+        Body: Fn(ChunkView<<V::View as View>::Fetch<'a>>) + Send + Sync,
     {
         // safety: we have exclusive access to world
         unsafe { self.par_for_each_chunk_unchecked(world, f) };
@@ -645,13 +604,13 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     /// Each chunk contains slices of components for entities which all have the same component layout.
     /// Only usable with queries whose views are read-only.
     #[inline]
-    pub fn for_each_chunk<'query, 'world, T: EntityStore, Body>(
+    pub fn for_each_chunk<'query, 'world: 'query, T: EntityStore, Body>(
         &'query mut self,
         world: &'world T,
         f: Body,
     ) where
-        Body: FnMut(ChunkView<<V::View as View<'world>>::Fetch>),
-        <V::View as View<'world>>::Fetch: ReadOnlyFetch,
+        Body: FnMut(ChunkView<<V::View as View>::Fetch<'world>>),
+        <V::View as View>::Fetch<'world>: ReadOnlyFetch,
     {
         // safety: the view is readonly - it cannot create mutable aliases
         unsafe { self.for_each_chunk_unchecked(world, f) };
@@ -665,8 +624,8 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     #[inline]
     pub fn par_for_each_chunk<'a, T: EntityStore, Body>(&'a mut self, world: &'a T, f: Body)
     where
-        Body: Fn(ChunkView<<V::View as View<'a>>::Fetch>) + Send + Sync,
-        <V::View as View<'a>>::Fetch: ReadOnlyFetch,
+        Body: Fn(ChunkView<<V::View as View>::Fetch<'a>>) + Send + Sync,
+        <V::View as View>::Fetch<'a>: ReadOnlyFetch,
     {
         // safety: the view is readonly - it cannot create mutable aliases
         unsafe { self.par_for_each_chunk_unchecked(world, f) };
@@ -682,12 +641,12 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     /// This function allows mutable access via a shared world reference. The caller is responsible for
     /// ensuring that no component accesses may create mutable aliases.
     #[inline]
-    pub unsafe fn for_each_unchecked<'query, 'world, T: EntityStore, Body>(
+    pub unsafe fn for_each_unchecked<'query, 'world: 'query, T: EntityStore, Body>(
         &'query mut self,
         world: &'world T,
         mut f: Body,
     ) where
-        Body: FnMut(<V::View as View<'world>>::Element),
+        Body: FnMut(<V::View as View>::Element<'world>),
     {
         // we use a nested loop because it is significantly faster than .flatten()
         // safety: the caller upholds the aliasing contract of this function
@@ -710,7 +669,7 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
         world: &'a T,
         f: Body,
     ) where
-        Body: Fn(<V::View as View<'a>>::Element) + Send + Sync,
+        Body: Fn(<V::View as View>::Element<'a>) + Send + Sync,
     {
         use rayon::iter::ParallelIterator;
         // safety: the caller upholds the aliasing contract of this function
@@ -719,12 +678,12 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
 
     /// Iterates through all components which match the query.
     #[inline]
-    pub fn for_each_mut<'query, 'world, T: EntityStore, Body>(
+    pub fn for_each_mut<'query, 'world: 'query, T: EntityStore, Body>(
         &'query mut self,
         world: &'world mut T,
         f: Body,
     ) where
-        Body: FnMut(<V::View as View<'world>>::Element),
+        Body: FnMut(<V::View as View>::Element<'world>),
     {
         // safety: we have exclusive access to world
         unsafe { self.for_each_unchecked(world, f) };
@@ -735,7 +694,7 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     #[inline]
     pub fn par_for_each_mut<'a, T: EntityStore, Body>(&'a mut self, world: &'a mut T, f: Body)
     where
-        Body: Fn(<V::View as View<'a>>::Element) + Send + Sync,
+        Body: Fn(<V::View as View>::Element<'a>) + Send + Sync,
     {
         // safety: we have exclusive access to world
         unsafe { self.par_for_each_unchecked(world, f) };
@@ -745,13 +704,13 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     ///
     /// Only usable with queries whose views are read-only.
     #[inline]
-    pub fn for_each<'query, 'world, T: EntityStore, Body>(
+    pub fn for_each<'query, 'world: 'query, T: EntityStore, Body>(
         &'query mut self,
         world: &'world T,
         f: Body,
     ) where
-        Body: FnMut(<V::View as View<'world>>::Element),
-        <V::View as View<'world>>::Fetch: ReadOnlyFetch,
+        Body: FnMut(<V::View as View>::Element<'world>),
+        <V::View as View>::Fetch<'world>: ReadOnlyFetch,
     {
         // safety: the view is readonly - it cannot create mutable aliases
         unsafe { self.for_each_unchecked(world, f) };
@@ -764,8 +723,8 @@ impl<V: IntoView, F: EntityFilter> Query<V, F> {
     #[inline]
     pub fn par_for_each<'a, T: EntityStore, Body>(&'a mut self, world: &'a T, f: Body)
     where
-        Body: Fn(<V::View as View<'a>>::Element) + Send + Sync,
-        <V::View as View<'a>>::Fetch: ReadOnlyFetch,
+        Body: Fn(<V::View as View>::Element<'a>) + Send + Sync,
+        <V::View as View>::Fetch<'a>: ReadOnlyFetch,
     {
         // safety: the view is readonly - it cannot create mutable aliases
         unsafe { self.par_for_each_unchecked(world, f) };
@@ -882,10 +841,10 @@ impl<'a, F: Fetch> rayon::iter::IntoParallelIterator for ChunkView<'a, F> {
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
 pub struct ChunkIter<'data, 'index, V, D>
 where
-    V: View<'data>,
+    V: View,
     D: DynamicFilter,
 {
-    inner: V::Iter,
+    inner: V::Iter<'data, 'index>,
     indices: Iter<'index, ArchetypeIndex>,
     filter: &'index mut D,
     archetypes: &'data [Archetype],
@@ -894,10 +853,10 @@ where
 
 impl<'world, 'query, V, D> Iterator for ChunkIter<'world, 'query, V, D>
 where
-    V: View<'world>,
+    V: View,
     D: DynamicFilter + 'query,
 {
-    type Item = ChunkView<'world, V::Fetch>;
+    type Item = ChunkView<'world, V::Fetch<'world>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         for fetch in &mut self.inner {
@@ -932,10 +891,10 @@ pub mod par_iter {
     #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
     pub struct Iter<'world, 'query, V, D>
     where
-        V: View<'world>,
+        V: View,
         D: DynamicFilter,
     {
-        inner: V::Iter,
+        inner: V::Iter<'world, 'query>,
         indices: std::slice::Iter<'query, ArchetypeIndex>,
         filter: &'query Mutex<D>,
         archetypes: &'world [Archetype],
@@ -944,10 +903,10 @@ pub mod par_iter {
 
     impl<'world, 'query, V, D> Iterator for Iter<'world, 'query, V, D>
     where
-        V: View<'world>,
+        V: View,
         D: DynamicFilter + 'query,
     {
-        type Item = ChunkView<'world, V::Fetch>;
+        type Item = ChunkView<'world, V::Fetch<'world>>;
 
         fn next(&mut self) -> Option<Self::Item> {
             let mut filter = self.filter.lock();
@@ -971,7 +930,7 @@ pub mod par_iter {
     #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
     pub struct ParChunkIter<'a, V, D>
     where
-        V: View<'a>,
+        V: View,
         D: DynamicFilter,
     {
         world: StorageAccessor<'a>,
@@ -982,7 +941,7 @@ pub mod par_iter {
 
     impl<'a, V, D> ParChunkIter<'a, V, D>
     where
-        V: View<'a>,
+        V: View,
         D: DynamicFilter + 'a,
     {
         pub(super) fn new(
@@ -1001,21 +960,21 @@ pub mod par_iter {
 
     unsafe impl<'a, V, D> Send for ParChunkIter<'a, V, D>
     where
-        V: View<'a>,
+        V: View,
         D: DynamicFilter + 'a,
     {
     }
 
     unsafe impl<'a, V, D> Sync for ParChunkIter<'a, V, D>
     where
-        V: View<'a>,
+        V: View,
         D: DynamicFilter + 'a,
     {
     }
 
     impl<'a, V, D> UnindexedProducer for ParChunkIter<'a, V, D>
     where
-        V: View<'a>,
+        V: View,
         D: DynamicFilter + 'a,
     {
         type Item = <Iter<'a, 'a, V, D> as Iterator>::Item;
@@ -1049,7 +1008,7 @@ pub mod par_iter {
         {
             let indices = self.result.index().iter();
             let fetch = unsafe {
-                <V as View<'a>>::fetch(
+                <V as View>::fetch(
                     self.world.components(),
                     self.world.archetypes(),
                     self.result,
@@ -1068,10 +1027,10 @@ pub mod par_iter {
 
     impl<'a, V, D> ParallelIterator for ParChunkIter<'a, V, D>
     where
-        V: View<'a>,
+        V: View,
         D: DynamicFilter + 'a,
     {
-        type Item = ChunkView<'a, V::Fetch>;
+        type Item = ChunkView<'a, V::Fetch<'a>>;
 
         fn drive_unindexed<C>(self, consumer: C) -> C::Result
         where
@@ -1089,6 +1048,49 @@ mod test {
         IntoQuery, QueryResult,
     };
     use crate::internals::{storage::archetype::ArchetypeIndex, world::World};
+
+    // These tests only compile if component references are bound to the world's lifetime and
+    // not to the query or iterator that produced them. This is the property the separate
+    // `'data`/`'index` lifetimes on `View::Iter` exist to provide.
+    #[test]
+    fn iter_results_outlive_query_and_iterator() {
+        let mut world = World::default();
+        world.extend(vec![(1usize, true), (2usize, false)]);
+
+        let values: Vec<&usize> = {
+            let mut query = <&usize>::query();
+            query.iter(&world).collect()
+        };
+        assert_eq!(values.len(), 2);
+        assert_eq!(values.iter().copied().sum::<usize>(), 3);
+    }
+
+    #[test]
+    fn chunk_results_outlive_query_and_iterator() {
+        let mut world = World::default();
+        world.extend(vec![(1usize, true), (2usize, false)]);
+
+        let chunks: Vec<&[usize]> = {
+            let mut query = <&usize>::query();
+            query
+                .iter_chunks(&world)
+                .map(|c| c.get_components())
+                .collect()
+        };
+        assert_eq!(chunks.iter().map(|c| c.len()).sum::<usize>(), 2);
+    }
+
+    #[test]
+    fn get_result_outlives_query_and_stack_index() {
+        let mut world = World::default();
+        let entity = world.push((5usize, true));
+
+        let value: &usize = {
+            let mut query = <&usize>::query();
+            query.get(&world, entity).unwrap()
+        };
+        assert_eq!(*value, 5);
+    }
 
     #[test]
     fn query() {

@@ -27,10 +27,10 @@ impl IntoView for Entity {
     type View = Self;
 }
 
-impl<'data> View<'data> for Entity {
-    type Element = <Self::Fetch as IntoIndexableIter>::Item;
-    type Fetch = EntityFetch<'data>;
-    type Iter = Iter<'data>;
+impl View for Entity {
+    type Element<'data> = <Self::Fetch<'data> as IntoIndexableIter>::Item;
+    type Fetch<'data> = EntityFetch<'data>;
+    type Iter<'data, 'index> = Iter<'data, 'index>;
     type Read = [ComponentTypeId; 0];
     type Write = [ComponentTypeId; 0];
 
@@ -67,11 +67,11 @@ impl<'data> View<'data> for Entity {
         Permissions::default()
     }
 
-    unsafe fn fetch(
+    unsafe fn fetch<'data, 'index>(
         _: &'data Components,
         archetypes: &'data [Archetype],
-        query: QueryResult<'data>,
-    ) -> Self::Iter {
+        query: QueryResult<'index>,
+    ) -> Self::Iter<'data, 'index> {
         Iter {
             archetypes,
             indexes: query.index().iter(),
@@ -80,12 +80,12 @@ impl<'data> View<'data> for Entity {
 }
 
 #[doc(hidden)]
-pub struct Iter<'a> {
+pub struct Iter<'a, 'i> {
     archetypes: &'a [Archetype],
-    indexes: std::slice::Iter<'a, ArchetypeIndex>,
+    indexes: std::slice::Iter<'i, ArchetypeIndex>,
 }
 
-impl<'a> Iterator for Iter<'a> {
+impl<'a, 'i> Iterator for Iter<'a, 'i> {
     type Item = Option<EntityFetch<'a>>;
 
     #[inline]

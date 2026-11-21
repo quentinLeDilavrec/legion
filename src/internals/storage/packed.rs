@@ -541,15 +541,15 @@ impl<T: Component> Default for PackedStorage<T> {
     }
 }
 
-impl<'a, T: Component> ComponentStorage<'a, T> for PackedStorage<T> {
-    type Iter = ComponentIter<'a, T>;
-    type IterMut = ComponentIterMut<'a, T>;
+impl<T: Component> ComponentStorage<T> for PackedStorage<T> {
+    type Iter<'a> = ComponentIter<'a, T>;
+    type IterMut<'a> = ComponentIterMut<'a, T>;
 
     unsafe fn extend_memcopy(&mut self, archetype: ArchetypeIndex, ptr: *const T, count: usize) {
         unsafe { self.extend_memcopy_raw(archetype, ptr.cast::<u8>(), count) };
     }
 
-    fn get(&'a self, ArchetypeIndex(archetype): ArchetypeIndex) -> Option<ComponentSlice<'a, T>> {
+    fn get(&self, ArchetypeIndex(archetype): ArchetypeIndex) -> Option<ComponentSlice<'_, T>> {
         let slice_index = *self.index.get(archetype as usize)?;
         let (ptr, len) = self.slices.get(slice_index)?;
         let slice = unsafe { std::slice::from_raw_parts(ptr.as_ptr(), *len) };
@@ -558,9 +558,9 @@ impl<'a, T: Component> ComponentStorage<'a, T> for PackedStorage<T> {
     }
 
     unsafe fn get_mut(
-        &'a self,
+        &self,
         ArchetypeIndex(archetype): ArchetypeIndex,
-    ) -> Option<ComponentSliceMut<'a, T>> {
+    ) -> Option<ComponentSliceMut<'_, T>> {
         let slice_index = *self.index.get(archetype as usize)?;
         let (ptr, len) = self.slices.get(slice_index)?;
         let slice = unsafe { std::slice::from_raw_parts_mut(ptr.as_ptr(), *len) };
@@ -568,7 +568,7 @@ impl<'a, T: Component> ComponentStorage<'a, T> for PackedStorage<T> {
         Some(ComponentSliceMut::new(slice, version))
     }
 
-    fn iter(&'a self, start_inclusive: usize, end_exclusive: usize) -> Self::Iter {
+    fn iter(&self, start_inclusive: usize, end_exclusive: usize) -> Self::Iter<'_> {
         ComponentIter {
             slices: self.slices[start_inclusive..end_exclusive]
                 .iter()
@@ -576,7 +576,7 @@ impl<'a, T: Component> ComponentStorage<'a, T> for PackedStorage<T> {
         }
     }
 
-    unsafe fn iter_mut(&'a self, start_inclusive: usize, end_exclusive: usize) -> Self::IterMut {
+    unsafe fn iter_mut(&self, start_inclusive: usize, end_exclusive: usize) -> Self::IterMut<'_> {
         ComponentIterMut {
             slices: self.slices[start_inclusive..end_exclusive]
                 .iter()

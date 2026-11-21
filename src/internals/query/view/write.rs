@@ -39,10 +39,10 @@ impl<T: Component> IntoView for Write<T> {
     type View = Self;
 }
 
-impl<'data, T: Component> View<'data> for Write<T> {
-    type Element = <Self::Fetch as IntoIndexableIter>::Item;
-    type Fetch = WriteFetch<'data, T>;
-    type Iter = WriteIter<'data, T>;
+impl<T: Component> View for Write<T> {
+    type Element<'data> = <Self::Fetch<'data> as IntoIndexableIter>::Item;
+    type Fetch<'data> = WriteFetch<'data, T>;
+    type Iter<'data, 'index> = WriteIter<'data, 'index, T>;
     type Read = [ComponentTypeId; 1];
     type Write = [ComponentTypeId; 1];
 
@@ -81,11 +81,11 @@ impl<'data, T: Component> View<'data> for Write<T> {
         permissions
     }
 
-    unsafe fn fetch(
+    unsafe fn fetch<'data, 'index>(
         components: &'data Components,
         _: &'data [Archetype],
-        query: QueryResult<'data>,
-    ) -> Self::Iter {
+        query: QueryResult<'index>,
+    ) -> Self::Iter<'data, 'index> {
         if query.is_empty() {
             return WriteIter::Empty;
         };
@@ -110,18 +110,18 @@ impl<'data, T: Component> View<'data> for Write<T> {
 }
 
 #[doc(hidden)]
-pub enum WriteIter<'a, T: Component> {
+pub enum WriteIter<'a, 'i, T: Component> {
     Indexed {
         components: &'a T::Storage,
-        archetypes: Iter<'a, ArchetypeIndex>,
+        archetypes: Iter<'i, ArchetypeIndex>,
     },
     Grouped {
-        slices: <T::Storage as ComponentStorage<'a, T>>::IterMut,
+        slices: <T::Storage as ComponentStorage<T>>::IterMut<'a>,
     },
     Empty,
 }
 
-impl<'a, T: Component> Iterator for WriteIter<'a, T> {
+impl<'a, 'i, T: Component> Iterator for WriteIter<'a, 'i, T> {
     type Item = Option<WriteFetch<'a, T>>;
 
     fn next(&mut self) -> Option<Self::Item> {

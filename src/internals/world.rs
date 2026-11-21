@@ -55,9 +55,7 @@ pub trait EntityStore {
     fn entry_mut(&mut self, entity: Entity) -> Result<EntryMut<'_>, EntityAccessError>;
 
     /// Returns a component storage accessor for component types declared in the specified [`View`].
-    fn get_component_storage<V: for<'b> View<'b>>(
-        &self,
-    ) -> Result<StorageAccessor<'_>, EntityAccessError>;
+    fn get_component_storage<V: View>(&self) -> Result<StorageAccessor<'_>, EntityAccessError>;
 }
 
 /// Unique identifier for a [`World`].
@@ -862,9 +860,7 @@ impl EntityStore for World {
         unsafe { self.entry_unchecked(entity) }
     }
 
-    fn get_component_storage<V: for<'b> View<'b>>(
-        &self,
-    ) -> Result<StorageAccessor<'_>, EntityAccessError> {
+    fn get_component_storage<V: View>(&self) -> Result<StorageAccessor<'_>, EntityAccessError> {
         Ok(StorageAccessor::new(
             self.id,
             &self.index,

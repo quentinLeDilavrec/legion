@@ -40,10 +40,10 @@ impl<T: Component> IntoView for TryRead<T> {
     type View = Self;
 }
 
-impl<'data, T: Component> View<'data> for TryRead<T> {
-    type Element = <Self::Fetch as IntoIndexableIter>::Item;
-    type Fetch = Slice<'data, T>;
-    type Iter = TryReadIter<'data, T>;
+impl<T: Component> View for TryRead<T> {
+    type Element<'data> = <Self::Fetch<'data> as IntoIndexableIter>::Item;
+    type Fetch<'data> = Slice<'data, T>;
+    type Iter<'data, 'index> = TryReadIter<'data, 'index, T>;
     type Read = [ComponentTypeId; 1];
     type Write = [ComponentTypeId; 0];
 
@@ -82,11 +82,11 @@ impl<'data, T: Component> View<'data> for TryRead<T> {
         permissions
     }
 
-    unsafe fn fetch(
+    unsafe fn fetch<'data, 'index>(
         components: &'data Components,
         archetypes: &'data [Archetype],
-        query: QueryResult<'data>,
-    ) -> Self::Iter {
+        query: QueryResult<'index>,
+    ) -> Self::Iter<'data, 'index> {
         let components = components.get_downcast::<T>();
         let archetype_indexes = query.index().iter();
         TryReadIter {
@@ -98,13 +98,13 @@ impl<'data, T: Component> View<'data> for TryRead<T> {
 }
 
 #[doc(hidden)]
-pub struct TryReadIter<'a, T: Component> {
+pub struct TryReadIter<'a, 'i, T: Component> {
     components: Option<&'a T::Storage>,
-    archetype_indexes: std::slice::Iter<'a, ArchetypeIndex>,
+    archetype_indexes: std::slice::Iter<'i, ArchetypeIndex>,
     archetypes: &'a [Archetype],
 }
 
-impl<'a, T: Component> Iterator for TryReadIter<'a, T> {
+impl<'a, 'i, T: Component> Iterator for TryReadIter<'a, 'i, T> {
     type Item = Option<Slice<'a, T>>;
 
     #[inline]

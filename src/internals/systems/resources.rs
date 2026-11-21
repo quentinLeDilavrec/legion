@@ -92,24 +92,24 @@ impl_downcast!(Resource);
 ///     assert_eq!(a.0, b.0);
 /// }
 /// ```
-pub trait ResourceSet<'a> {
+pub trait ResourceSet {
     /// The resource reference returned during a fetch.
-    type Result: 'a;
+    type Result<'a>: 'a;
 
     /// Fetches all defined resources, without checking mutability.
     ///
     /// # Safety
     /// It is up to the end user to validate proper mutability rules across the resources being accessed.
-    unsafe fn fetch_unchecked(resources: &'a UnsafeResources) -> Self::Result;
+    unsafe fn fetch_unchecked(resources: &UnsafeResources) -> Self::Result<'_>;
 
     /// Fetches all defined resources.
-    fn fetch_mut(resources: &'a mut Resources) -> Self::Result {
+    fn fetch_mut(resources: &mut Resources) -> Self::Result<'_> {
         // safe because mutable borrow ensures exclusivity
         unsafe { Self::fetch_unchecked(&resources.internal) }
     }
 
     /// Fetches all defined resources.
-    fn fetch(resources: &'a Resources) -> Self::Result
+    fn fetch(resources: &Resources) -> Self::Result<'_>
     where
         Self: ReadOnly,
     {
@@ -117,16 +117,16 @@ pub trait ResourceSet<'a> {
     }
 }
 
-impl<'a> ResourceSet<'a> for () {
-    type Result = ();
+impl ResourceSet for () {
+    type Result<'a> = ();
 
-    unsafe fn fetch_unchecked(_: &UnsafeResources) -> Self::Result {}
+    unsafe fn fetch_unchecked(_: &UnsafeResources) -> Self::Result<'_> {}
 }
 
-impl<'a, T: Resource> ResourceSet<'a> for Read<T> {
-    type Result = AtomicRef<'a, T>;
+impl<T: Resource> ResourceSet for Read<T> {
+    type Result<'a> = AtomicRef<'a, T>;
 
-    unsafe fn fetch_unchecked(resources: &'a UnsafeResources) -> Self::Result {
+    unsafe fn fetch_unchecked(resources: &UnsafeResources) -> Self::Result<'_> {
         let type_id = &ResourceTypeId::of::<T>();
         resources
             .get(type_id)
@@ -135,10 +135,10 @@ impl<'a, T: Resource> ResourceSet<'a> for Read<T> {
     }
 }
 
-impl<'a, T: Resource> ResourceSet<'a> for Write<T> {
-    type Result = AtomicRefMut<'a, T>;
+impl<T: Resource> ResourceSet for Write<T> {
+    type Result<'a> = AtomicRefMut<'a, T>;
 
-    unsafe fn fetch_unchecked(resources: &'a UnsafeResources) -> Self::Result {
+    unsafe fn fetch_unchecked(resources: &UnsafeResources) -> Self::Result<'_> {
         let type_id = &ResourceTypeId::of::<T>();
         resources
             .get(type_id)
@@ -167,11 +167,11 @@ macro_rules! resource_tuple {
 macro_rules! impl_resource_tuple {
     ( $( $ty: ident ),* ) => {
         #[allow(unused_parens, non_snake_case)]
-        impl<'a, $( $ty: ResourceSet<'a> ),*> ResourceSet<'a> for ($( $ty, )*)
+        impl<$( $ty: ResourceSet ),*> ResourceSet for ($( $ty, )*)
         {
-            type Result = ($( $ty::Result, )*);
+            type Result<'a> = ($( $ty::Result<'a>, )*);
 
-            unsafe fn fetch_unchecked(resources: &'a UnsafeResources) -> Self::Result {
+            unsafe fn fetch_unchecked(resources: &UnsafeResources) -> Self::Result<'_> {
                 ($( unsafe { $ty::fetch_unchecked(resources) }, )*)
             }
         }
