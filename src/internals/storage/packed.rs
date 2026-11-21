@@ -4,7 +4,7 @@ use std::{
     alloc::Layout,
     cell::UnsafeCell,
     iter::Zip,
-    mem::{align_of, size_of},
+    mem::size_of,
     ops::{Deref, DerefMut},
     ptr::NonNull,
     rc::Rc,
@@ -37,57 +37,70 @@ impl<T> RawAlloc<T> {
                 cap: 0,
             }
         } else {
-            let layout =
-                Layout::from_size_align(size_of::<T>() * min_capacity, align_of::<T>()).unwrap();
+            let layout = Self::array_layout(min_capacity);
+            // Safety: `T` is not zero-sized and `min_capacity` is non-zero, so the size is non-zero.
+            let ptr = NonNull::new(unsafe { std::alloc::alloc(layout) })
+                .unwrap_or_else(|| std::alloc::handle_alloc_error(layout));
             Self {
-                ptr: NonNull::new(unsafe { std::alloc::alloc(layout).cast() }).unwrap(),
+                ptr: ptr.cast(),
                 cap: min_capacity,
             }
         }
     }
 
-    fn layout(&self) -> Layout {
-        Layout::from_size_align(size_of::<T>() * self.cap, align_of::<T>()).unwrap()
-    }
-
     fn grow(&mut self, new_capacity: usize) {
+        debug_assert!(size_of::<T>() != 0);
         debug_assert!(self.cap < new_capacity);
 
-        unsafe {
-            let dst_ptr = if self.cap == 0 {
-                let layout =
-                    Layout::from_size_align(size_of::<T>() * new_capacity, align_of::<T>())
-                        .unwrap();
-                std::alloc::alloc(layout).cast::<T>()
-            } else {
+        let new_layout = Self::array_layout(new_capacity);
+        let dst_ptr = if self.cap == 0 {
+            // Safety: `T` is not zero-sized and `new_capacity > cap >= 0`, so the size is non-zero.
+            unsafe { std::alloc::alloc(new_layout) }
+        } else {
+            // Safety: `ptr` is a live allocation made by the global allocator with `self.layout()`.
+            // `new_layout.size()` is non-zero, and, being the size of a valid `Layout` with the same
+            // alignment, does not overflow `isize::MAX` when rounded up to that alignment.
+            unsafe {
                 std::alloc::realloc(
                     self.ptr.as_ptr().cast::<u8>(),
                     self.layout(),
-                    size_of::<T>() * new_capacity,
+                    new_layout.size(),
                 )
-                .cast::<T>()
-            };
-            if let Some(new_ptr) = NonNull::new(dst_ptr) {
-                self.ptr = new_ptr;
-                self.cap = new_capacity;
-            } else {
-                std::alloc::handle_alloc_error(Layout::from_size_align_unchecked(
-                    size_of::<T>() * new_capacity,
-                    align_of::<T>(),
-                ));
             }
+        };
+        match NonNull::new(dst_ptr) {
+            Some(new_ptr) => {
+                self.ptr = new_ptr.cast();
+                self.cap = new_capacity;
+            }
+            None => std::alloc::handle_alloc_error(new_layout),
         }
+    }
+
+    /// The layout of an array of `capacity` elements.
+    ///
+    /// Panics if the total size overflows `usize` or exceeds `isize::MAX`.
+    fn array_layout(capacity: usize) -> Layout {
+        Layout::array::<T>(capacity).expect("component storage capacity overflow")
+    }
+
+    /// The layout of the current heap allocation.
+    ///
+    /// Must only be called while the allocation exists, i.e. `T` is not zero-sized and `cap > 0`.
+    fn layout(&self) -> Layout {
+        debug_assert!(size_of::<T>() != 0 && self.cap > 0);
+        // Safety: `cap` was only ever set after `Layout::array::<T>(cap)` succeeded when the
+        // allocation was made or grown, so it succeeds again here.
+        unsafe { Layout::array::<T>(self.cap).unwrap_unchecked() }
     }
 }
 
 impl<T> Drop for RawAlloc<T> {
     fn drop(&mut self) {
         if size_of::<T>() != 0 && self.cap > 0 {
-            unsafe {
-                let layout =
-                    Layout::from_size_align_unchecked(size_of::<T>() * self.cap, align_of::<T>());
-                std::alloc::dealloc(self.ptr.as_ptr().cast(), layout);
-            }
+            // Safety: a non-zero-sized `T` with `cap > 0` means `ptr` is a live allocation made by
+            // the global allocator with exactly `self.layout()`.
+            unsafe { std::alloc::dealloc(self.ptr.as_ptr().cast(), self.layout()) };
         }
     }
 }
@@ -129,14 +142,12 @@ impl<T> ComponentVec<T> {
             Self::Packed {
                 raw, offset, len, ..
             } => {
-                (
-                    unsafe { NonNull::new_unchecked(raw.ptr.as_ptr().add(*offset)) },
-                    *len,
-                )
+                // Safety: a packed slice always lies within the shared allocation,
+                // i.e. `offset + len <= raw.cap` (established in `ComponentVec::pack`),
+                // so `add` stays in bounds.
+                (unsafe { raw.ptr.add(*offset) }, *len)
             }
-            Self::Loose { raw, len, .. } => {
-                (unsafe { NonNull::new_unchecked(raw.ptr.as_ptr()) }, *len)
-            }
+            Self::Loose { raw, len, .. } => (raw.ptr, *len),
         }
     }
 
@@ -172,7 +183,11 @@ impl<T> ComponentVec<T> {
         };
 
         if cap - len < space {
-            self.grow(epoch, len * 2 + space);
+            let new_capacity = len
+                .checked_mul(2)
+                .and_then(|doubled| doubled.checked_add(space))
+                .expect("component storage capacity overflow");
+            self.grow(epoch, new_capacity);
         }
     }
 
@@ -239,7 +254,7 @@ impl<T> ComponentVec<T> {
     unsafe fn pack(&mut self, dst: Rc<RawAlloc<T>>, offset: usize) {
         let (ptr, len) = self.as_raw_slice();
         debug_assert_ne!(std::mem::size_of::<T>(), 0);
-        debug_assert!(dst.cap >= offset + len);
+        debug_assert!(dst.cap >= offset.checked_add(len).unwrap());
         unsafe { std::ptr::copy_nonoverlapping(ptr.as_ptr(), dst.ptr.as_ptr().add(offset), len) };
         *self = Self::Packed {
             raw: dst,
@@ -447,7 +462,7 @@ impl<T: Component> UnknownComponentStorage for PackedStorage<T> {
             return 0;
         }
 
-        let epoch_threshold = self.epoch - age_threshold;
+        let epoch_threshold = self.epoch.saturating_sub(age_threshold);
 
         let len = self
             .slices
@@ -629,6 +644,63 @@ impl<'a, T: Component> Iterator for ComponentIterMut<'a, T> {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    // The element count at which `size_of::<T>() * count` overflows `usize`. The old unchecked
+    // multiplication wrapped here in release builds, producing an undersized allocation.
+    fn overflowing_count<T>() -> usize {
+        usize::MAX / size_of::<T>() + 1
+    }
+
+    #[test]
+    #[should_panic(expected = "capacity overflow")]
+    fn raw_alloc_new_rejects_overflowing_capacity() {
+        drop(RawAlloc::<u64>::new(overflowing_count::<u64>()));
+    }
+
+    #[test]
+    #[should_panic(expected = "capacity overflow")]
+    fn raw_alloc_grow_rejects_overflowing_capacity() {
+        let mut alloc = RawAlloc::<u64>::new(1);
+        alloc.grow(overflowing_count::<u64>());
+    }
+
+    #[test]
+    #[should_panic(expected = "capacity overflow")]
+    fn raw_alloc_rejects_capacity_beyond_isize_max() {
+        // Does not overflow `usize`, but `Layout` forbids sizes above `isize::MAX`.
+        drop(RawAlloc::<u64>::new(
+            isize::MAX as usize / size_of::<u64>() + 1,
+        ));
+    }
+
+    #[test]
+    fn raw_alloc_grow_preserves_contents_and_alignment() {
+        // Both the fresh-allocation (cap == 0) and the realloc paths, with an over-aligned type.
+        let mut alloc = RawAlloc::<u128>::new(0);
+        alloc.grow(2);
+        assert_eq!(alloc.cap, 2);
+        unsafe {
+            alloc.ptr.as_ptr().write(11);
+            alloc.ptr.as_ptr().add(1).write(22);
+        }
+
+        alloc.grow(100);
+        assert_eq!(alloc.cap, 100);
+        assert!(alloc.ptr.as_ptr().is_aligned());
+        unsafe {
+            assert_eq!(alloc.ptr.as_ptr().read(), 11);
+            assert_eq!(alloc.ptr.as_ptr().add(1).read(), 22);
+            alloc.ptr.as_ptr().add(99).write(33);
+            assert_eq!(alloc.ptr.as_ptr().add(99).read(), 33);
+        }
+    }
+
+    #[test]
+    fn raw_alloc_zero_sized_never_allocates() {
+        let alloc = RawAlloc::<()>::new(5);
+        assert_eq!(alloc.cap, !0);
+        drop(alloc);
+    }
 
     #[test]
     fn create_storage() {
