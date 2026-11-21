@@ -144,33 +144,70 @@ impl<M> EntityBuilder<M> {
 }
 
 impl<M> Inner<M> {
+    /// Allocates a new buffer of at least `min_size` bytes and copies the first `cursor` bytes of
+    /// `storage` into it. Does not free `storage`.
+    ///
+    /// # Safety
+    /// - `storage` must be valid for reads of `cursor` bytes.
+    /// - `cursor <= min_size`, so the copy fits in the new buffer.
     unsafe fn grow(
         min_size: usize,
         cursor: usize,
         align: usize,
         storage: NonNull<u8>,
     ) -> (NonNull<u8>, Layout) {
-        let layout = Layout::from_size_align(min_size.next_power_of_two().max(64), align).unwrap();
-        let new_storage = unsafe { NonNull::new_unchecked(std::alloc::alloc(layout)) };
+        let size = min_size
+            .checked_next_power_of_two()
+            .expect("component buffer size overflow")
+            .max(64);
+        let layout = Layout::from_size_align(size, align).expect("invalid component buffer layout");
+        // Safety: `layout.size()` is at least 64, so `alloc` is never called with a zero size.
+        // It returns null on allocation failure, which must not be turned into a `NonNull`.
+        let new_storage = NonNull::new(unsafe { std::alloc::alloc(layout) })
+            .unwrap_or_else(|| std::alloc::handle_alloc_error(layout));
+        // Safety: the caller guarantees `storage` is readable for `cursor` bytes. The new buffer is
+        // at least `min_size >= cursor` bytes, and being freshly allocated it cannot overlap
+        // `storage`. Both pointers are `u8`, so alignment is trivially satisfied. The bytes are
+        // copied untyped, so padding or otherwise uninitialized bytes are fine.
         unsafe { std::ptr::copy_nonoverlapping(storage.as_ptr(), new_storage.as_ptr(), cursor) };
         (new_storage, layout)
     }
 
+    /// Moves the bytes of a component into the buffer, growing it if needed, and returns the
+    /// address the component was written to.
+    ///
+    /// # Safety
+    /// - `ptr` must be valid for reads of `ty.layout().size()` bytes, and must not point into this buffer.
+    /// - The bytes at `ptr` must be a valid instance of the type described by `ty`.
+    ///   Ownership is moved into the buffer, so the caller must not drop the source afterwards.
+    ///
+    /// `storage` is dangling exactly when `layout.size() == 0`;
+    /// otherwise it was allocated with `layout` by the global allocator.
+    /// This invariant is relied on in the implementation.
     unsafe fn push(&mut self, ty: TypeInfo, ptr: *mut u8, vacant: VacantEntry, meta: M) -> *mut u8 {
         let offset = align(self.cursor, ty.layout().align());
         let end = offset + ty.layout().size();
         if end > self.layout.size() || ty.layout().align() > self.layout.align() {
             let new_align = self.layout.align().max(ty.layout().align());
+            // Safety: `storage` holds `cursor` initialized-or-padding bytes, and
+            // `end = align(cursor, a) + size >= cursor`.
             let (new_storage, new_layout) =
                 unsafe { Self::grow(end, self.cursor, new_align, self.storage) };
             if self.layout.size() != 0 {
+                // Safety: by the struct invariant, a non-zero-size layout means `storage` was
+                // allocated with exactly `self.layout`.
+                // It is replaced right below, so it is never used after being freed.
                 unsafe { std::alloc::dealloc(self.storage.as_ptr(), self.layout) };
             }
             self.storage = new_storage;
             self.layout = new_layout;
         }
 
+        // Safety: the check above guarantees `end <= self.layout.size()`, so `offset` and
+        // `offset + size` both lie within (or one past the end of) the allocation.
         let addr = unsafe { self.storage.as_ptr().add(offset) };
+        // Safety: `addr` is valid for writes of `size` bytes (see above). `ptr` is readable for
+        // `size` bytes and does not overlap the buffer, as required by this function's contract.
         unsafe { std::ptr::copy_nonoverlapping(ptr, addr, ty.layout().size()) };
 
         vacant.insert(self.info.len());

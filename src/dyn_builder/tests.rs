@@ -3,6 +3,36 @@ use std::any::TypeId;
 use super::builder::EntityBuilder;
 
 #[test]
+fn buffer_growth_preserves_components() {
+    // Mixed sizes and alignments force the backing buffer to be reallocated several times,
+    // including growth that raises the buffer's alignment (u8 -> u128).
+    let mut components = EntityBuilder::default();
+    components.add(0xABu8);
+    components.add(0xBEEFu16);
+    components.add(0xDEAD_BEEFu32);
+    components.add(0x0123_4567_89AB_CDEFu64);
+    components.add([7u8; 200]);
+    components.add(u128::MAX - 1);
+    components.add([9u64; 100]);
+    components.add(vec![1, 2, 3]);
+
+    assert_eq!(components.get_mut::<u8>(), Some(&mut 0xAB));
+    assert_eq!(components.get_mut::<u16>(), Some(&mut 0xBEEF));
+    assert_eq!(components.get_mut::<u32>(), Some(&mut 0xDEAD_BEEF));
+    assert_eq!(
+        components.get_mut::<u64>(),
+        Some(&mut 0x0123_4567_89AB_CDEF)
+    );
+    assert_eq!(components.get_mut::<[u8; 200]>(), Some(&mut [7u8; 200]));
+    assert_eq!(components.get_mut::<u128>(), Some(&mut (u128::MAX - 1)));
+    assert_eq!(components.get_mut::<[u64; 100]>(), Some(&mut [9u64; 100]));
+    assert_eq!(components.get_mut::<Vec<i32>>(), Some(&mut vec![1, 2, 3]));
+
+    let u128_ptr = std::ptr::from_mut(components.get_mut::<u128>().unwrap());
+    assert!(u128_ptr.is_aligned());
+}
+
+#[test]
 fn simple() {
     let mut world = crate::World::new(Default::default());
     let mut components = EntityBuilder::default();
