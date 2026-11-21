@@ -227,7 +227,7 @@ impl<T> ComponentVec<T> {
             } => {
                 // if we are currently packed, then allocate new storage and switch to loose
                 debug_assert!(*cap < new_capacity);
-                let new_alloc = RawAlloc::new(*len);
+                let new_alloc = RawAlloc::new(new_capacity);
                 unsafe {
                     std::ptr::copy_nonoverlapping(
                         raw.ptr.as_ptr().add(*offset),
@@ -249,6 +249,18 @@ impl<T> ComponentVec<T> {
                 *last_written = epoch;
             }
         };
+    }
+
+    /// Forgets all elements without dropping them, leaving the vec empty but still owning its
+    /// buffer.
+    ///
+    /// # Safety
+    /// The caller must have moved the elements out (e.g. by memcopy), so that dropping this vec
+    /// does not double-drop them.
+    unsafe fn forget_elements(&mut self) {
+        match self {
+            Self::Packed { len, .. } | Self::Loose { len, .. } => *len = 0,
+        }
     }
 
     unsafe fn pack(&mut self, dst: Rc<RawAlloc<T>>, offset: usize) {
@@ -423,10 +435,12 @@ impl<T: Component> UnknownComponentStorage for PackedStorage<T> {
             let (ptr, len) = self.get_raw(src_archetype).unwrap();
             unsafe { dst.extend_memcopy_raw(dst_archetype, ptr, len) };
 
-            // clear and forget source
-            let mut swapped = ComponentVec::<T>::new();
-            std::mem::swap(&mut self.allocations[src_index], &mut swapped);
-            std::mem::forget(swapped);
+            // The components were memcopied into the destination, so forget them in the source
+            // (without running their destructors) and then drop the now-empty vec so that its
+            // buffer, or its reference to a shared packed buffer, is released.
+            let src_allocation = &mut self.allocations[src_index];
+            unsafe { src_allocation.forget_elements() };
+            *src_allocation = ComponentVec::new();
         }
 
         // update slice pointers
@@ -492,6 +506,10 @@ impl<T: Component> UnknownComponentStorage for PackedStorage<T> {
     }
 
     fn fragmentation(&self) -> f32 {
+        if self.entity_len == 0 {
+            return 0f32;
+        }
+
         self.allocations
             .iter()
             .fold(0f32, |x, y| x + y.estimate_fragmentation())
