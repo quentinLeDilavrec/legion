@@ -108,6 +108,11 @@ required-features = ["parallel"]
 name = "insertion"
 harness = false
 
+[[example]]
+name = "append_only"
+required-features = ["internals"]
+test = true
+
 [[test]]
 name = "codegen"
 required-features = ["codegen"]
