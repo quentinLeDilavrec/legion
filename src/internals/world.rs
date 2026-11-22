@@ -429,7 +429,7 @@ impl World {
 
     fn insert_archetype(&mut self, layout: EntityLayout) -> ArchetypeIndex {
         // create and insert new archetype
-        self.index.push(&layout);
+        self.index.push(layout.component_set());
         let arch_index = ArchetypeIndex(self.archetypes.len() as u32);
         let subscribers = self.subscribers.matches_layout(layout.component_types());
         self.archetypes

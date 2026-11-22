@@ -16,6 +16,7 @@ use std::{
 
 use super::{
     component::{Component, ComponentTypeId},
+    component_set::ComponentSet,
     UnknownComponentStorage,
 };
 use crate::internals::{
@@ -185,6 +186,12 @@ impl EntityLayout {
 
     /// Returns a slice of component type IDs for the components inside the layout.
     pub fn component_types(&self) -> &[ComponentTypeId] {
+        self.components.types()
+    }
+
+    /// Returns the component types of the layout as a `ComponentSet`, without the storage
+    /// constructors.
+    pub fn component_set(&self) -> &ComponentSet {
         &self.components
     }
 

@@ -19,7 +19,7 @@ pub struct ComponentTypeId {
 
 impl ComponentTypeId {
     /// Constructs the component type ID for the given component type.
-    pub fn of<T: Component>() -> Self {
+    pub fn of<T: 'static>() -> Self {
         Self {
             type_id: TypeId::of::<T>(),
             #[cfg(debug_assertions)]

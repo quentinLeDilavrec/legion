@@ -13,6 +13,7 @@ use crate::internals::hash::ComponentTypeIdHasher;
 
 pub mod archetype;
 pub mod component;
+pub mod component_set;
 pub mod group;
 pub mod index;
 pub mod packed;

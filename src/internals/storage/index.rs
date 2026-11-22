@@ -1,8 +1,7 @@
 //! An index of archetype layouts used to accelerate query evaluation.
 
 use super::{
-    archetype::{ArchetypeIndex, EntityLayout},
-    component::ComponentTypeId,
+    archetype::ArchetypeIndex, component::ComponentTypeId, component_set::ComponentSet,
     slicevec::SliceVec,
 };
 use crate::internals::query::filter::LayoutFilter;
@@ -14,9 +13,9 @@ pub struct SearchIndex {
 }
 
 impl SearchIndex {
-    pub(crate) fn push(&mut self, archetype_layout: &EntityLayout) {
+    pub(crate) fn push(&mut self, archetype_types: &ComponentSet) {
         self.component_layouts
-            .push(archetype_layout.component_types().iter().copied());
+            .push(archetype_types.types().iter().copied());
     }
 
     /// Returns an iterator over archetype indexes for archetypes which match the given layout filter,
