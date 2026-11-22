@@ -146,7 +146,7 @@ impl Drop for Archetype {
 /// Describes the component types which are attached to an entity.
 #[derive(Default, Debug, Clone)]
 pub struct EntityLayout {
-    components: Vec<ComponentTypeId>,
+    components: ComponentSet,
     component_constructors: Vec<fn() -> Box<dyn UnknownComponentStorage>>,
 }
 
@@ -158,12 +158,10 @@ impl EntityLayout {
 
     /// Adds a new component to the layout.
     pub fn register_component<T: Component>(&mut self) {
-        let type_id = ComponentTypeId::of::<T>();
         assert!(
-            !self.components.contains(&type_id),
+            self.components.insert(ComponentTypeId::of::<T>()),
             "only one component of a given type may be attached to a single entity"
         );
-        self.components.push(type_id);
         self.component_constructors
             .push(|| Box::new(T::Storage::default()));
     }
@@ -179,10 +177,9 @@ impl EntityLayout {
         f: fn() -> Box<dyn UnknownComponentStorage>,
     ) {
         assert!(
-            !self.components.contains(&type_id),
+            self.components.insert(type_id),
             "only one component of a given type may be attached to a single entity"
         );
-        self.components.push(type_id);
         self.component_constructors.push(f);
     }
 
@@ -199,29 +196,23 @@ impl EntityLayout {
 
     /// Returns `true` if the layout contains the given component type.
     pub fn has_component<T: Component>(&self) -> bool {
-        self.has_component_by_id(ComponentTypeId::of::<T>())
+        self.components.has_component::<T>()
     }
 
     /// Returns `true` if the layout contains the given component type.
     pub fn has_component_by_id(&self, type_id: ComponentTypeId) -> bool {
-        self.components.contains(&type_id)
+        self.components.contains(type_id)
     }
 }
 
 impl LayoutFilter for EntityLayout {
     fn matches_layout(&self, components: &[ComponentTypeId]) -> FilterResult {
-        FilterResult::Match(
-            components.len() == self.components.len()
-                && self.components.iter().all(|t| components.contains(t)),
-        )
+        self.components.matches_layout(components)
     }
 }
 
 impl LayoutFilter for Rc<EntityLayout> {
     fn matches_layout(&self, components: &[ComponentTypeId]) -> FilterResult {
-        FilterResult::Match(
-            components.len() == self.components.len()
-                && self.components.iter().all(|t| components.contains(t)),
-        )
+        self.components.matches_layout(components)
     }
 }
