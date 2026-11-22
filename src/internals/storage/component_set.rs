@@ -5,8 +5,8 @@ use crate::internals::query::filter::{FilterResult, LayoutFilter};
 
 /// An ordered set of component types, without any information about how those components are stored.
 ///
-/// Types keep the order in which they were inserted.
-/// As a [`LayoutFilter`], a `ComponentSet` matches exactly the layouts containing the same types (in any order).
+/// Types keep the order in which they were inserted. As a [`LayoutFilter`],
+/// a `ComponentSet` matches exactly the layouts containing the same types (in any order).
 #[derive(Default, Debug, Clone)]
 pub struct ComponentSet {
     types: Vec<ComponentTypeId>,

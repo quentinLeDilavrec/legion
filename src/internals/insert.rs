@@ -376,7 +376,7 @@ macro_rules! component_source {
 
 macro_rules! impl_component_source {
     ( $( $ty: ident ),* ) => {
-        impl<$( $ty: Component ),*> LayoutFilter for ComponentSourceFilter<($( $ty, )*)> {
+        impl<$( $ty: 'static ),*> LayoutFilter for ComponentSourceFilter<($( $ty, )*)> {
             fn matches_layout(
                 &self,
                 components: &[ComponentTypeId],

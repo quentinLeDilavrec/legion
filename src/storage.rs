@@ -76,6 +76,9 @@
 //! let world = World::new(options);
 //! ```
 
+// Needed by custom `ComponentStorage` implementations, but not meant to be part of the documented API.
+#[doc(hidden)]
+pub use crate::internals::storage::next_component_version;
 pub use crate::internals::{
     cons::{ConsAppend, ConsFlatten},
     hash::{ComponentTypeIdHasher, U64Hasher},
@@ -90,6 +93,7 @@ pub use crate::internals::{
         index::SearchIndex,
         packed::PackedStorage,
         ComponentIndex, ComponentMeta, ComponentSlice, ComponentSliceMut, ComponentStorage,
-        Components, Epoch, MultiMut, PackOptions, UnknownComponentStorage, Version,
+        Components, Epoch, MultiMut, PackOptions, PackableStorage, UnknownComponentStorage,
+        Version,
     },
 };

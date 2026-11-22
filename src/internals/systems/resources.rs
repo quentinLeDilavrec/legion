@@ -199,7 +199,7 @@ impl ResourceCell {
         self.data.into_inner()
     }
 
-    /// # Safety
+    /// # WARNING
     /// Types which are !Sync should only be retrieved on the thread which owns the resource
     /// collection.
     pub fn get<T: Resource>(&self) -> AtomicRef<'_, T> {
@@ -207,7 +207,7 @@ impl ResourceCell {
         AtomicRef::map(borrow, |inner| inner.downcast_ref::<T>().unwrap())
     }
 
-    /// # Safety
+    /// # WARNING
     /// Types which are !Send should only be retrieved on the thread which owns the resource
     /// collection.
     pub fn get_mut<T: Resource>(&self) -> AtomicRefMut<'_, T> {

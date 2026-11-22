@@ -58,6 +58,9 @@ workspace = true
 default = ["parallel", "serialize", "codegen"]
 parallel = ["rayon"]
 extended-tuple-impls = []
+# Exposes the `legion::internals` module: the building blocks legion is made of, for people writing
+# their own ECS. Unstable: items there may change or disappear in any release.
+internals = []
 serialize = ["serde", "erased-serde", "uuid/serde", "scoped-tls-hkt"]
 
 codegen = ["legion_codegen"]
@@ -108,6 +111,10 @@ harness = false
 [[test]]
 name = "codegen"
 required-features = ["codegen"]
+
+[[test]]
+name = "internals"
+required-features = ["internals"]
 
 [[test]]
 name = "systems_par_for_each"

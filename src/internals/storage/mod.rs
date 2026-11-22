@@ -17,6 +17,7 @@ pub mod component_set;
 pub mod group;
 pub mod index;
 pub mod packed;
+pub mod raw_alloc;
 pub mod slicevec;
 
 /// Contains information about the type of a component.
@@ -45,7 +46,7 @@ impl PartialEq for ComponentMeta {
 
 impl ComponentMeta {
     /// Returns the component meta of component type `T`.
-    pub fn of<T: Component>() -> Self {
+    pub fn of<T: 'static>() -> Self {
         ComponentMeta {
             size: std::mem::size_of::<T>(),
             align: std::mem::align_of::<T>(),
@@ -83,6 +84,20 @@ impl ComponentMeta {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct ComponentIndex(pub(crate) usize);
 
+#[cfg(feature = "internals")]
+impl ComponentIndex {
+    /// Constructs a component index from a raw index.
+    pub const fn new(index: usize) -> Self {
+        Self(index)
+    }
+
+    /// Returns the raw index. Custom [`UnknownComponentStorage`] implementations need this to
+    /// interpret the indices they are handed.
+    pub const fn get(self) -> usize {
+        self.0
+    }
+}
+
 /// A world epoch. Epochs are incremented each time a world is packed, and are used
 /// by the packing heuristics as a measure of age.
 pub type Epoch = u64;
@@ -92,15 +107,24 @@ pub type Epoch = u64;
 pub type Version = u64;
 
 static COMPONENT_VERSION: AtomicU64 = AtomicU64::new(0);
-pub(crate) fn next_component_version() -> u64 {
+
+/// Returns a new, globally unique component version. Custom storages should assign one to a slice
+/// whenever it is handed out mutably or written to, so that change detection keeps working.
+#[doc(hidden)]
+pub fn next_component_version() -> u64 {
     COMPONENT_VERSION.fetch_add(1, Ordering::SeqCst)
 }
 
 /// A storage location for component data slices. Each component storage may hold one slice for
 /// each archetype inserted into the storage. The type of component stored is not known statically.
 pub trait UnknownComponentStorage: Downcast + Send + Sync {
-    /// Notifies the storage of the start of a new epoch.
-    fn increment_epoch(&mut self);
+    /// Returns this storage's packing interface, if it supports packing.
+    ///
+    /// Storages that have no notion of repacking (the default) return `None`, and are skipped by
+    /// [`Components::pack`].
+    fn as_packable(&mut self) -> Option<&mut dyn PackableStorage> {
+        None
+    }
 
     /// Inserts a new empty component slice for an archetype into this storage.
     fn insert_archetype(&mut self, archetype: ArchetypeIndex, index: Option<usize>);
@@ -133,12 +157,6 @@ pub trait UnknownComponentStorage: Downcast + Send + Sync {
     /// Removes a component from an archetype slice, swapping it with the last component in the slice.
     fn swap_remove(&mut self, archetype: ArchetypeIndex, index: ComponentIndex);
 
-    /// Packs archetype slices.
-    fn pack(&mut self, epoch_threshold: Epoch) -> usize;
-
-    /// A heuristic estimating cache misses for an iteration through all components due to archetype fragmentation.
-    fn fragmentation(&self) -> f32;
-
     /// Returns the component metadata.
     fn element_vtable(&self) -> ComponentMeta;
 
@@ -167,14 +185,44 @@ pub trait UnknownComponentStorage: Downcast + Send + Sync {
 }
 impl_downcast!(UnknownComponentStorage);
 
+/// An optional capability of a component storage: rearranging its archetype slices in memory to
+/// make iteration over several archetypes cheaper.
+///
+/// A storage opts in by implementing this trait and returning `Some(self)` from
+/// [`UnknownComponentStorage::as_packable`].
+pub trait PackableStorage {
+    /// Notifies the storage of the start of a new epoch.
+    ///
+    /// Epochs are the clock used to decide how long a slice has been stable.
+    fn increment_epoch(&mut self);
+
+    /// Packs archetype slices which have been stable for at least `epoch_threshold` epochs.
+    ///
+    /// Returns the number of components that were moved.
+    fn pack(&mut self, epoch_threshold: Epoch) -> usize;
+
+    /// A heuristic estimating cache misses for an iteration through all components due to
+    /// archetype fragmentation.
+    fn fragmentation(&self) -> f32;
+}
+
 /// An accessor for a shared slice reference of components for a single archetype.
-pub struct ComponentSlice<'a, T: Component> {
+pub struct ComponentSlice<'a, T> {
     pub(crate) components: &'a [T],
     pub(crate) version: &'a Version,
 }
 
-impl<'a, T: Component> ComponentSlice<'a, T> {
-    pub(crate) fn new(components: &'a [T], version: &'a Version) -> Self {
+impl<'a, T> ComponentSlice<'a, T> {
+    /// Constructs an accessor for a shared slice of components.
+    ///
+    /// This is what a [`ComponentStorage`] implementation returns from [`ComponentStorage::get`]
+    /// and its iterators.
+    ///
+    /// - `components` is the archetype's component slice.
+    /// - `version` is the slice's change-detection version. Shared access only reads it; it is
+    ///   the storage's job to assign a fresh one (see `next_component_version`) whenever the
+    ///   slice is written to.
+    pub fn new(components: &'a [T], version: &'a Version) -> Self {
         Self {
             components,
             version,
@@ -187,13 +235,13 @@ impl<'a, T: Component> ComponentSlice<'a, T> {
     }
 }
 
-impl<'a, T: Component> From<ComponentSlice<'a, T>> for &'a [T] {
+impl<'a, T> From<ComponentSlice<'a, T>> for &'a [T] {
     fn from(slice: ComponentSlice<'a, T>) -> Self {
         slice.components
     }
 }
 
-impl<'a, T: Component> Deref for ComponentSlice<'a, T> {
+impl<'a, T> Deref for ComponentSlice<'a, T> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
@@ -201,7 +249,7 @@ impl<'a, T: Component> Deref for ComponentSlice<'a, T> {
     }
 }
 
-impl<'a, T: Component> Index<ComponentIndex> for ComponentSlice<'a, T> {
+impl<'a, T> Index<ComponentIndex> for ComponentSlice<'a, T> {
     type Output = T;
     fn index(&self, index: ComponentIndex) -> &Self::Output {
         &self.components[index.0]
@@ -209,14 +257,24 @@ impl<'a, T: Component> Index<ComponentIndex> for ComponentSlice<'a, T> {
 }
 
 /// An accessor for a mutable slice reference of components for a single archetype.
-pub struct ComponentSliceMut<'a, T: Component> {
+pub struct ComponentSliceMut<'a, T> {
     // todo would be better if these were private and we controlled version increments more centrally
     pub(crate) components: &'a mut [T],
     pub(crate) version: &'a mut Version,
 }
 
-impl<'a, T: Component> ComponentSliceMut<'a, T> {
-    pub(crate) fn new(components: &'a mut [T], version: &'a mut Version) -> Self {
+impl<'a, T> ComponentSliceMut<'a, T> {
+    /// Constructs an accessor for a mutable slice of components.
+    ///
+    /// This is what a [`ComponentStorage`] implementation returns from
+    /// [`ComponentStorage::get_mut`] and its mutable iterators.
+    ///
+    /// - `components` is the archetype's component slice.
+    /// - `version` is the slice's change-detection version. It is overwritten with a fresh
+    ///   version (see `next_component_version`) when the accessor is converted with
+    ///   [`into_slice`](Self::into_slice). Writing through `IndexMut` does not bump it, so a
+    ///   storage that hands out this type for such accesses must bump the version itself.
+    pub fn new(components: &'a mut [T], version: &'a mut Version) -> Self {
         Self {
             components,
             version,
@@ -231,7 +289,7 @@ impl<'a, T: Component> ComponentSliceMut<'a, T> {
     }
 }
 
-impl<'a, T: Component> Deref for ComponentSliceMut<'a, T> {
+impl<'a, T> Deref for ComponentSliceMut<'a, T> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
@@ -239,14 +297,14 @@ impl<'a, T: Component> Deref for ComponentSliceMut<'a, T> {
     }
 }
 
-impl<'a, T: Component> Index<ComponentIndex> for ComponentSliceMut<'a, T> {
+impl<'a, T> Index<ComponentIndex> for ComponentSliceMut<'a, T> {
     type Output = T;
     fn index(&self, index: ComponentIndex) -> &Self::Output {
         &self.components[index.0]
     }
 }
 
-impl<'a, T: Component> IndexMut<ComponentIndex> for ComponentSliceMut<'a, T> {
+impl<'a, T> IndexMut<ComponentIndex> for ComponentSliceMut<'a, T> {
     fn index_mut(&mut self, index: ComponentIndex) -> &mut Self::Output {
         &mut self.components[index.0]
     }
@@ -254,7 +312,7 @@ impl<'a, T: Component> IndexMut<ComponentIndex> for ComponentSliceMut<'a, T> {
 
 /// A storage location for component data slices. Each component storage may hold once slice for
 /// each archetype inserted into the storage.
-pub trait ComponentStorage<T: Component>: UnknownComponentStorage + Default {
+pub trait ComponentStorage<T: 'static>: UnknownComponentStorage + Default {
     /// An iterator of shared archetype slice references.
     type Iter<'a>: Iterator<Item = ComponentSlice<'a, T>>
     where
@@ -360,6 +418,10 @@ impl Components {
     pub fn pack(&mut self, options: &PackOptions) {
         let mut total_moved_bytes = 0;
         for storage in self.iter_storages_mut() {
+            let Some(storage) = storage.as_packable() else {
+                continue;
+            };
+
             if storage.fragmentation() >= options.fragmentation_threshold {
                 total_moved_bytes += storage.pack(options.stability_threshold);
             }
@@ -370,7 +432,9 @@ impl Components {
         }
 
         for storage in self.iter_storages_mut() {
-            storage.increment_epoch();
+            if let Some(storage) = storage.as_packable() {
+                storage.increment_epoch();
+            }
         }
     }
 

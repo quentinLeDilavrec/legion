@@ -50,12 +50,12 @@ impl EntityBuilder {
 #[allow(unused)] // I might use it later
 impl<M> EntityBuilder<M> {
     /// Returns `true` if the entity has a component of type `T`.
-    pub fn has<T: Component>(&self) -> bool {
+    pub fn has<T: 'static>(&self) -> bool {
         self.indices.contains_key(&TypeId::of::<T>())
     }
 
     /// Returns a mutable reference to the component of type `T`, if it exists.
-    pub fn get_mut<T: Component>(&mut self) -> Option<&mut T> {
+    pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
         let index = self.indices.get(&TypeId::of::<T>())?;
         let (_, offset, _) = self.inner.info[*index];
         unsafe {

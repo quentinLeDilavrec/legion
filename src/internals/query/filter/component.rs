@@ -4,28 +4,28 @@ use super::{
     and::And, not::Not, or::Or, passthrough::Passthrough, ActiveFilter, FilterResult, GroupMatcher,
     LayoutFilter,
 };
-use crate::internals::storage::component::{Component, ComponentTypeId};
+use crate::internals::storage::component::ComponentTypeId;
 
 /// A filter which matches `true` when the given component exists in the archetype.
 #[derive(Debug)]
-pub struct ComponentFilter<T: Component>(PhantomData<T>);
+pub struct ComponentFilter<T: 'static>(PhantomData<T>);
 
-impl<T: Component> Default for ComponentFilter<T> {
+impl<T: 'static> Default for ComponentFilter<T> {
     fn default() -> Self {
         ComponentFilter(PhantomData)
     }
 }
 
-impl<T: Component> Copy for ComponentFilter<T> {}
-impl<T: Component> Clone for ComponentFilter<T> {
+impl<T: 'static> Copy for ComponentFilter<T> {}
+impl<T: 'static> Clone for ComponentFilter<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: Component> ActiveFilter for ComponentFilter<T> {}
+impl<T: 'static> ActiveFilter for ComponentFilter<T> {}
 
-impl<T: Component> GroupMatcher for ComponentFilter<T> {
+impl<T: 'static> GroupMatcher for ComponentFilter<T> {
     fn can_match_group() -> bool {
         true
     }
@@ -34,13 +34,13 @@ impl<T: Component> GroupMatcher for ComponentFilter<T> {
     }
 }
 
-impl<T: Component> LayoutFilter for ComponentFilter<T> {
+impl<T: 'static> LayoutFilter for ComponentFilter<T> {
     fn matches_layout(&self, components: &[ComponentTypeId]) -> FilterResult {
         FilterResult::Match(components.contains(&ComponentTypeId::of::<T>()))
     }
 }
 
-impl<T: Component> std::ops::Not for ComponentFilter<T> {
+impl<T: 'static> std::ops::Not for ComponentFilter<T> {
     type Output = Not<Self>;
 
     #[inline]
@@ -49,7 +49,7 @@ impl<T: Component> std::ops::Not for ComponentFilter<T> {
     }
 }
 
-impl<T: Component, Rhs: ActiveFilter> std::ops::BitAnd<Rhs> for ComponentFilter<T> {
+impl<T: 'static, Rhs: ActiveFilter> std::ops::BitAnd<Rhs> for ComponentFilter<T> {
     type Output = And<(Self, Rhs)>;
 
     #[inline]
@@ -60,7 +60,7 @@ impl<T: Component, Rhs: ActiveFilter> std::ops::BitAnd<Rhs> for ComponentFilter<
     }
 }
 
-impl<T: Component> std::ops::BitAnd<Passthrough> for ComponentFilter<T> {
+impl<T: 'static> std::ops::BitAnd<Passthrough> for ComponentFilter<T> {
     type Output = Self;
 
     #[inline]
@@ -71,7 +71,7 @@ impl<T: Component> std::ops::BitAnd<Passthrough> for ComponentFilter<T> {
 
 impl<T, Rhs> std::ops::BitOr<Rhs> for ComponentFilter<T>
 where
-    T: Component,
+    T: 'static,
     Rhs: ActiveFilter,
 {
     type Output = Or<(Self, Rhs)>;
@@ -84,7 +84,7 @@ where
     }
 }
 
-impl<T: Component> std::ops::BitOr<Passthrough> for ComponentFilter<T> {
+impl<T: 'static> std::ops::BitOr<Passthrough> for ComponentFilter<T> {
     type Output = Self;
 
     #[inline]

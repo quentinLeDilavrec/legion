@@ -182,10 +182,22 @@
 //! * `parallel` - Enables parallel iterators and parallel schedule execution via the rayon library. Enabled by default.
 //! * `extended-tuple-impls` - Extends the maximum size of view and component tuples from 8 to 24, at the cost of increased compile times. Off by default.
 //! * `serialize` - Enables the serde serialization module and associated functionality. Enabled by default.
-
 //! * `codegen` - Enables the `#[system]` procedural macro. Enabled by default.
+//! * `internals` - Exposes the `legion::internals` module, the building blocks legion is made of, for
+//!   people writing their own ECS. **Unstable**: anything in it may change or disappear in any release,
+//!   including patch releases. Off by default.
 
 // implementation modules
+// Unstable and not held to the documentation and lint standards of the public API above.
+// These lints only fire because the module becomes publicly reachable under this feature.
+#[cfg(feature = "internals")]
+#[allow(
+    missing_docs,
+    clippy::len_without_is_empty,
+    // clippy::unnecessary_safety_doc
+)]
+pub mod internals;
+#[cfg(not(feature = "internals"))]
 mod internals;
 
 // public API organized into logical modules

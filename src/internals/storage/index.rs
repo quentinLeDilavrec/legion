@@ -13,7 +13,8 @@ pub struct SearchIndex {
 }
 
 impl SearchIndex {
-    pub(crate) fn push(&mut self, archetype_types: &ComponentSet) {
+    /// Adds a new archetype layout to the index.
+    pub fn push(&mut self, archetype_types: &ComponentSet) {
         self.component_layouts
             .push(archetype_types.types().iter().copied());
     }
