@@ -47,6 +47,39 @@ impl EntityBuilder {
     }
 }
 
+#[cfg(feature = "internals")]
+impl EntityBuilder {
+    /// Adds a component
+    pub fn add_with_storage<
+        T: 'static + Send + Sync,
+        S: 'static + Default + crate::internals::storage::UnknownComponentStorage,
+    >(
+        &mut self,
+        mut component: T,
+    ) -> &mut Self {
+        // Safety: `component` is a valid instance of `T`.
+        unsafe {
+            self._add(
+                std::ptr::from_mut(&mut component).cast(),
+                TypeInfo::of::<T>(),
+                || Box::new(S::default()),
+            );
+        }
+        core::mem::forget(component);
+        self
+    }
+
+    /// Returns a mutable reference to the component of type `T`, or inserts a default value if it doesn't exist.
+    pub fn mut_or_default_with_storage<
+        T: 'static + Default + Send + Sync,
+        S: 'static + Default + crate::internals::storage::UnknownComponentStorage,
+    >(
+        &mut self,
+    ) -> &mut T {
+        self._mut_or_default(TypeInfo::of::<T>(), || Box::new(S::default()))
+    }
+}
+
 #[allow(unused)] // I might use it later
 impl<M> EntityBuilder<M> {
     /// Returns `true` if the entity has a component of type `T`.
@@ -73,7 +106,7 @@ impl<M> EntityBuilder<M> {
         }
     }
 
-    fn _mut_or_default<T: Component + Default>(&mut self, ty: TypeInfo, meta: M) -> &mut T {
+    fn _mut_or_default<T: 'static + Default>(&mut self, ty: TypeInfo, meta: M) -> &mut T {
         use hash_map::Entry;
         match self.indices.entry(ty.id().type_id()) {
             Entry::Occupied(occupied) => {

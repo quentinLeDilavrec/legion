@@ -269,12 +269,14 @@ fn mutate_remove_component() {
 }
 
 #[test]
+#[cfg(feature = "events")]
 fn delete_entities_on_drop() {
     let (tx, rx) = std::sync::mpsc::channel::<legion::world::Event>();
     delete_entities_on_drop_impl(tx, rx);
 }
 
 #[test]
+#[cfg(feature = "events")]
 fn sync_sender_survives_full_channel() {
     let mut world = World::default();
     let (tx, rx) = std::sync::mpsc::sync_channel::<legion::world::Event>(1);
@@ -288,6 +290,7 @@ fn sync_sender_survives_full_channel() {
 }
 
 #[test]
+#[cfg(feature = "events")]
 fn closure_and_collector_subscribers() {
     use std::sync::{Arc, Mutex};
 
@@ -307,6 +310,7 @@ fn closure_and_collector_subscribers() {
 }
 
 #[test]
+#[cfg(feature = "events")]
 fn closure_subscriber_dropped_when_dead() {
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
@@ -334,6 +338,7 @@ fn closure_subscriber_dropped_when_dead() {
     assert_eq!(calls.load(Ordering::SeqCst), after_first);
 }
 
+#[cfg(feature = "events")]
 fn delete_entities_on_drop_impl<S, R>(tx: S, rx: R)
 where
     S: legion::world::EventSender + 'static,

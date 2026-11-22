@@ -183,6 +183,7 @@
 //! * `extended-tuple-impls` - Extends the maximum size of view and component tuples from 8 to 24, at the cost of increased compile times. Off by default.
 //! * `serialize` - Enables the serde serialization module and associated functionality. Enabled by default.
 //! * `codegen` - Enables the `#[system]` procedural macro. Enabled by default.
+//! * `events` - Enables entity events: `World::subscribe` and the `Event`, `EventSender`, `Subscriber` and `Subscribers` types. Enabled by default.
 //! * `internals` - Exposes the `legion::internals` module, the building blocks legion is made of, for
 //!   people writing their own ECS. **Unstable**: anything in it may change or disappear in any release,
 //!   including patch releases. Off by default.

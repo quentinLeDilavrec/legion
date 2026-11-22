@@ -9,10 +9,11 @@ use std::{
 use bit_set::BitSet;
 use itertools::Itertools;
 
+#[cfg(feature = "events")]
+use super::event::{EventSender, Subscriber, Subscribers};
 use super::{
     entity::{Allocate, Entity, EntityHasher, EntityLocation, LocationMap, ID_CLONE_MAPPINGS},
     entry::{Entry, EntryMut, EntryRef},
-    event::{EventSender, Subscriber, Subscribers},
     insert::{ArchetypeSource, ArchetypeWriter, ComponentSource, IntoComponentSource},
     query::{
         filter::{EntityFilter, LayoutFilter},
@@ -98,6 +99,7 @@ pub struct World {
     archetypes: Vec<Archetype>,
     entities: LocationMap,
     allocation_buffer: Vec<Entity>,
+    #[cfg(feature = "events")]
     subscribers: Subscribers,
 }
 
@@ -134,6 +136,7 @@ impl World {
             archetypes: Vec::default(),
             entities: LocationMap::default(),
             allocation_buffer: Vec::default(),
+            #[cfg(feature = "events")]
             subscribers: Subscribers::default(),
         }
     }
@@ -326,6 +329,7 @@ impl World {
     }
 
     /// Subscribes to entity [`Event`](super::event::Event)s.
+    #[cfg(feature = "events")]
     pub fn subscribe<T, S>(&mut self, sender: S, filter: T)
     where
         T: LayoutFilter + Send + Sync + 'static,
@@ -431,9 +435,14 @@ impl World {
         // create and insert new archetype
         self.index.push(layout.component_set());
         let arch_index = ArchetypeIndex(self.archetypes.len() as u32);
-        let subscribers = self.subscribers.matches_layout(layout.component_types());
-        self.archetypes
-            .push(Archetype::new(arch_index, layout, subscribers));
+        #[cfg(feature = "events")]
+        let archetype = {
+            let subscribers = self.subscribers.matches_layout(layout.component_types());
+            Archetype::with_subscribers(arch_index, layout, subscribers)
+        };
+        #[cfg(not(feature = "events"))]
+        let archetype = Archetype::new(arch_index, layout);
+        self.archetypes.push(archetype);
         let archetype = &self.archetypes[self.archetypes.len() - 1];
 
         // find all groups which contain each component

@@ -110,11 +110,14 @@
 //!
 //! # Events
 //!
+//! *Requires the `events` feature, which is enabled by default.*
+//!
 //! Notifications about archetype creation and entity insertion/removal from an archetype can be sent
-//! to an [`EventSender`] by subscribing to the world. A layout filter specifies which archetypes the
+//! to an `EventSender` by subscribing to the world. A layout filter specifies which archetypes the
 //! subscriber is interested in.
 //!
 //! ```
+//! # #[cfg(feature = "events")] {
 //! # use legion::*;
 //! # let mut world = World::default();
 //! # struct Position;
@@ -122,6 +125,7 @@
 //! // standard library channel.
 //! let (tx, rx) = std::sync::mpsc::channel::<legion::world::Event>();
 //! world.subscribe(tx, component::<Position>());
+//! # }
 //! ```
 //!
 //! `std::sync::mpsc::Sender` and `SyncSender` are supported out of the box, as are
@@ -130,12 +134,14 @@
 //! return `false` once the receiving side is gone.
 //!
 //! ```
+//! # #[cfg(feature = "events")] {
 //! # use legion::*;
 //! # let mut world = World::default();
 //! # struct Position;
 //! # let (tx, rx) = std::sync::mpsc::channel::<legion::world::Event>();
 //! // Adapt any channel by wrapping it in a closure.
 //! world.subscribe(move |event| tx.send(event).is_ok(), component::<Position>());
+//! # }
 //! ```
 //!
 //! # World splitting
@@ -172,10 +178,11 @@
 //!     .unwrap();
 //! ```
 
+#[cfg(feature = "events")]
+pub use crate::internals::event::{Event, EventSender};
 pub use crate::internals::{
     entity::{Allocate, Entity, EntityHasher, EntityLocation, LocationMap},
     entry::{ComponentError, Entry, EntryMut, EntryRef},
-    event::{Event, EventSender},
     permissions::Permissions,
     subworld::{ArchetypeAccess, ComponentAccess, SubWorld},
     world::{

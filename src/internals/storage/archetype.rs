@@ -19,9 +19,10 @@ use super::{
     component_set::ComponentSet,
     UnknownComponentStorage,
 };
+#[cfg(feature = "events")]
+use crate::internals::event::{Event, Subscriber, Subscribers};
 use crate::internals::{
     entity::Entity,
-    event::{Event, Subscriber, Subscribers},
     query::filter::{FilterResult, LayoutFilter},
 };
 
@@ -70,22 +71,40 @@ pub struct Archetype<Id: Copy = Entity> {
     index: ArchetypeIndex,
     entities: Vec<Id>,
     layout: Arc<EntityLayout>,
+    #[cfg(feature = "events")]
     subscribers: Subscribers<Id>,
 }
 
 impl<Id: Copy> Archetype<Id> {
-    /// Constructs a new, empty archetype.
+    /// Constructs a new, empty archetype with no subscribers.
     ///
     /// - `index` is the archetype's position in whatever collection of archetypes the caller
     ///   keeps. It is reported in events and by [`index`](Self::index), and is not otherwise
     ///   interpreted.
     /// - `layout` describes the component types of the entities the archetype will hold.
-    /// - `subscribers` are the listeners to notify of this archetype's events. They are sent an
-    ///   `ArchetypeCreated` event immediately. Pass `Subscribers::default()` if nobody listens.
     ///
-    /// The archetype only tracks entity IDs and layout; storing the entities' components is up
-    /// to the component storages.
-    pub fn new(
+    /// The archetype only tracks entity IDs and layout;
+    /// storing the entities' components is up to the component storages.
+    ///
+    /// To notify subscribers of the archetype's events,
+    /// use `with_subscribers` instead (requires the `events` feature).
+    /// Earlier versions took the subscribers as a third argument here.
+    pub fn new(index: ArchetypeIndex, layout: EntityLayout) -> Self {
+        Self {
+            index,
+            layout: Arc::new(layout),
+            entities: Vec::new(),
+            #[cfg(feature = "events")]
+            subscribers: Subscribers::default(),
+        }
+    }
+
+    /// Constructs a new, empty archetype, notifying the given subscribers of its events.
+    ///
+    /// This is like [`new`](Self::new), but `subscribers` are the listeners to notify of this
+    /// archetype's events. They are sent an `ArchetypeCreated` event immediately.
+    #[cfg(feature = "events")]
+    pub fn with_subscribers(
         index: ArchetypeIndex,
         layout: EntityLayout,
         mut subscribers: Subscribers<Id>,
@@ -123,6 +142,7 @@ impl<Id: Copy> Archetype<Id> {
     /// storage of the archetype, as the archetype only tracks IDs.
     pub fn push(&mut self, entity: Id) {
         self.entities.push(entity);
+        #[cfg(feature = "events")]
         self.subscribers
             .send(Event::EntityInserted(entity, self.index));
     }
@@ -145,6 +165,7 @@ impl<Id: Copy> Archetype<Id> {
     /// Panics if `entity_index` is out of bounds.
     pub fn swap_remove(&mut self, entity_index: usize) -> Id {
         let removed = self.entities.swap_remove(entity_index);
+        #[cfg(feature = "events")]
         self.subscribers
             .send(Event::EntityRemoved(removed, self.index));
         removed
@@ -156,6 +177,7 @@ impl<Id: Copy> Archetype<Id> {
     /// an `EntityInserted` event for each entity already in the archetype. Its filter is not
     /// applied here; the caller decides which archetypes a subscriber is attached to (see
     /// `Subscriber::is_interested`).
+    #[cfg(feature = "events")]
     pub fn subscribe(&mut self, subscriber: Subscriber<Id>) {
         subscriber.send(Event::ArchetypeCreated(self.index));
         for entity in &self.entities {
@@ -166,11 +188,13 @@ impl<Id: Copy> Archetype<Id> {
 
     /// Removes all entities from the archetype and returns them, in position order.
     ///
-    /// Subscribers are sent an `EntityRemoved` event for each entity. The caller is responsible
+    /// If the `events` feature is enabled, subscribers are sent an `EntityRemoved` event for each
+    /// entity. The caller is responsible
     /// for removing the entities' components from every component storage of the archetype.
     pub fn drain(&mut self) -> Vec<Id> {
         let mut entities = Vec::new();
         std::mem::swap(&mut self.entities, &mut entities);
+        #[cfg(feature = "events")]
         for entity in &entities {
             self.subscribers
                 .send(Event::EntityRemoved(*entity, self.index));
@@ -179,6 +203,7 @@ impl<Id: Copy> Archetype<Id> {
     }
 }
 
+#[cfg(feature = "events")]
 impl<Id: Copy> Drop for Archetype<Id> {
     fn drop(&mut self) {
         for entity in &self.entities {

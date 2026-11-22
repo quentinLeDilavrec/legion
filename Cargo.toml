@@ -55,11 +55,14 @@ clone_on_ref_ptr = "warn"
 workspace = true
 
 [features]
-default = ["parallel", "serialize", "codegen"]
+default = ["parallel", "serialize", "codegen", "events"]
 parallel = ["rayon"]
+# Entity events: `World::subscribe`, and the `Event`, `EventSender`, `Subscriber` and `Subscribers` types.
+# Without it, archetypes carry no subscriber list and never send notifications.
+events = []
 extended-tuple-impls = []
-# Exposes the `legion::internals` module: the building blocks legion is made of, for people writing
-# their own ECS. Unstable: items there may change or disappear in any release.
+# Exposes the `legion::internals` module: the building blocks legion is made of, for people writing their own ECS.
+# Unstable: items there may change or disappear in any release.
 internals = []
 serialize = ["serde", "erased-serde", "uuid/serde", "scoped-tls-hkt"]
 
@@ -120,6 +123,10 @@ required-features = ["codegen"]
 [[test]]
 name = "internals"
 required-features = ["internals"]
+
+[[test]]
+name = "internals_events"
+required-features = ["internals", "events"]
 
 [[test]]
 name = "systems_par_for_each"

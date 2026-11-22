@@ -5,14 +5,11 @@ use std::{
     mem::ManuallyDrop,
 };
 
-use legion::internals::{
-    event::Subscribers,
-    storage::{
-        archetype::{Archetype, ArchetypeIndex, EntityLayout},
-        component::{Component, ComponentTypeId},
-        index::SearchIndex,
-        ComponentSlice, ComponentStorage, Components,
-    },
+use legion::internals::storage::{
+    archetype::{Archetype, ArchetypeIndex, EntityLayout},
+    component::{Component, ComponentTypeId},
+    index::SearchIndex,
+    ComponentSlice, ComponentStorage, Components,
 };
 
 use crate::{
@@ -314,7 +311,7 @@ impl AppendWorld {
             let mut layout = (**self.archetypes[i].layout()).clone();
             layout.register_component::<T>();
 
-            let mut rebuilt = Archetype::new(index, layout, Subscribers::default());
+            let mut rebuilt = Archetype::new(index, layout);
             rebuilt.reserve(ids.len());
             for id in &ids {
                 rebuilt.push(*id);
@@ -441,8 +438,7 @@ impl AppendWorld {
                 .get_or_insert_with(*type_id, constructor)
                 .insert_archetype(index, None);
         }
-        self.archetypes
-            .push(Archetype::new(index, layout, Subscribers::default()));
+        self.archetypes.push(Archetype::new(index, layout));
         index
     }
 }

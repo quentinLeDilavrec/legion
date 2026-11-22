@@ -16,6 +16,7 @@
 pub mod cons;
 pub mod entity;
 pub mod entry;
+#[cfg(feature = "events")]
 pub mod event;
 pub mod hash;
 pub mod insert;

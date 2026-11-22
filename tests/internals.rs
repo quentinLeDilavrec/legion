@@ -1,11 +1,8 @@
 //! Smoke test for the `internals` feature: uses legion's building blocks the way a crate
 //! building its own ECS would, going only through `legion::internals`.
 
-use std::sync::Mutex;
-
 use legion::internals::{
     entity::{Allocate, EntityLocation, LocationMap},
-    event::{Event, EventSender},
     storage::{
         archetype::ArchetypeIndex, component::ComponentTypeId, component_set::ComponentSet,
         index::SearchIndex, next_component_version, packed::PackedStorage, raw_alloc::RawAlloc,
@@ -118,21 +115,6 @@ fn component_meta_does_not_need_the_component_trait_machinery() {
 }
 
 #[test]
-fn events_work_with_a_custom_id_type() {
-    #[derive(Debug, Clone, Copy, PartialEq)]
-    struct MyId(u32);
-
-    let sink = Mutex::new(Vec::<Event<MyId>>::new());
-    assert!(sink.send(Event::EntityInserted(MyId(7), ArchetypeIndex(1))));
-
-    let events = sink.into_inner().unwrap();
-    assert!(matches!(
-        events.as_slice(),
-        [Event::EntityInserted(MyId(7), ArchetypeIndex(1))]
-    ));
-}
-
-#[test]
 fn only_packing_storages_expose_packing() {
     let mut storage = PackedStorage::<u32>::default();
     let packable = storage.as_packable().expect("PackedStorage can be packed");
@@ -142,70 +124,20 @@ fn only_packing_storages_expose_packing() {
 
 #[test]
 fn archetypes_can_be_built_with_a_custom_id_type() {
-    use std::sync::Arc;
-
-    use legion::{
-        internals::{
-            event::{Subscriber, Subscribers},
-            storage::archetype::{Archetype, EntityLayout},
-        },
-        query::Any,
-    };
+    use legion::internals::storage::archetype::{Archetype, EntityLayout};
 
     #[derive(Debug, Clone, Copy, PartialEq)]
     struct MyId(u32);
 
-    let sink = Arc::new(Mutex::new(Vec::<Event<MyId>>::new()));
-    let mut subscribers = Subscribers::<MyId>::default();
-    subscribers.push(Subscriber::new(Any, Arc::clone(&sink)));
-
-    let archetype = Archetype::<MyId>::new(ArchetypeIndex(3), EntityLayout::new(), subscribers);
-
+    let mut archetype = Archetype::<MyId>::new(ArchetypeIndex(3), EntityLayout::new());
     assert_eq!(archetype.index(), ArchetypeIndex(3));
     assert!(archetype.entities().is_empty());
-    assert!(archetype.layout().component_types().is_empty());
 
-    // creating the archetype notified the subscriber
-    let events = sink.lock().unwrap();
-    assert!(matches!(
-        events.as_slice(),
-        [Event::ArchetypeCreated(ArchetypeIndex(3))]
-    ));
-
-    drop(events);
-
-    // the remaining methods keep component positions aligned and notify subscribers
-    let mut archetype = archetype;
-    archetype.reserve(3);
     archetype.push(MyId(10));
     archetype.push(MyId(11));
     archetype.push(MyId(12));
-    assert_eq!(archetype.entities(), &[MyId(10), MyId(11), MyId(12)]);
-
-    // the last entity takes the removed one's place
     assert_eq!(archetype.swap_remove(0), MyId(10));
     assert_eq!(archetype.entities(), &[MyId(12), MyId(11)]);
-
-    // a late subscriber is brought up to date with what is already there
-    let late = Arc::new(Mutex::new(Vec::<Event<MyId>>::new()));
-    archetype.subscribe(Subscriber::new(Any, Arc::clone(&late)));
-    assert!(matches!(
-        late.lock().unwrap().as_slice(),
-        [
-            Event::ArchetypeCreated(ArchetypeIndex(3)),
-            Event::EntityInserted(MyId(12), _),
-            Event::EntityInserted(MyId(11), _),
-        ]
-    ));
-
     assert_eq!(archetype.drain(), [MyId(12), MyId(11)]);
     assert!(archetype.entities().is_empty());
-
-    let removed = sink
-        .lock()
-        .unwrap()
-        .iter()
-        .filter(|e| matches!(e, Event::EntityRemoved(..)))
-        .count();
-    assert_eq!(removed, 3); // one swap_remove, two from drain
 }
